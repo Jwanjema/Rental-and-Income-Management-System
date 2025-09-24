@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import AddFormModal from './AddFormModal.jsx';
+import AddFormModal from './AddFormModal.js';
 import '../app.css';
 
 const Tenants = ({ searchQuery }) => {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getUnits, getProperties, addUnit, updateUnit, deleteUnit } from '../api.js';
-import AddFormModal from './AddFormModal.jsx';
+import AddFormModal from './AddFormModal.js';
 import '../app.css';
 
 const Units = ({ searchQuery }) => {
