@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Sidebar from './components/Sidebar.js';
-import Topbar from './components/Topbar.js';
-import Properties from './components/Properties.js';
-import Dashboard from './components/Dashboard.js';
-import Tenants from './components/Tenants.js';
-import Agents from './components/Agents.js';
-import Leases from './components/Leases.js';
-import Payments from './components/Payments.js';
-import Reports from './components/Reports.js';
-import Settings from './components/Settings.js';
-import Units from './components/Units.js';
+import Sidebar from './components/Sidebar.jsx';
+import Topbar from './components/Topbar.jsx';
+import Properties from './components/Properties.jsx';
+import Dashboard from './components/Dashboard.jsx';
+import Tenants from './components/Tenants.jsx';
+import Agents from './components/Agents.jsx';
+import Leases from './components/Leases.jsx';
+import Payments from './components/Payments.jsx';
+import Reports from './components/Reports.jsx';
+import Settings from './components/Settings.jsx';
+import Units from './components/Units.jsx';
 import './app.css';
 
 const themes = {
