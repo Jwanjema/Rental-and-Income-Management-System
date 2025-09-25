@@ -24,21 +24,19 @@ app.json.compact = False
 migrate = Migrate(app, db)
 db.init_app(app)
 bcrypt.init_app(app)
-# This is the key change: all routes will now be prefixed with /api
 api = Api(app, prefix='/api')
 CORS(app, supports_credentials=True, origins=[os.environ.get('CLIENT_URL', 'http://localhost:5173')])
 
-# --- Hook to check for user session (runs before every request) ---
+# --- Hook to check for user session ---
 @app.before_request
 def check_user_logged_in():
-    # Define routes that do NOT require a login
     open_paths = ['/api/register', '/api/login', '/api/check_session']
     if request.method == 'OPTIONS' or request.path in open_paths:
         return
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
 
-# --- Authentication Resources (now using Flask-RESTful) ---
+# --- Authentication Resources ---
 class Register(Resource):
     def post(self):
         data = request.get_json()
@@ -133,7 +131,6 @@ class PropertyFinancials(Resource):
         category_data = defaultdict(float)
         for e in expenses: category_data[e.category] += e.amount
         expense_breakdown = [{"name": cat, "value": val} for cat, val in category_data.items()]
-
         total_income = sum(p.amount for p in payments_query.all())
         total_expense = sum(e.amount for e in expenses)
         occupancy_rate = 0
@@ -164,8 +161,7 @@ class ResourceList(Resource):
         data = request.get_json()
         try:
             for key in ['start_date', 'end_date', 'date']:
-                if key in data and data.get(key):
-                    data[key] = datetime.strptime(data[key], '%Y-%m-%d').date()
+                if key in data and data.get(key): data[key] = datetime.strptime(data[key], '%Y-%m-%d').date()
             new_item = self.model(**data)
             db.session.add(new_item)
             db.session.commit()
@@ -186,8 +182,7 @@ class ResourceById(Resource):
         data = request.get_json()
         try:
             for attr, value in data.items():
-                if attr in ['start_date', 'end_date', 'date'] and value:
-                    value = datetime.strptime(value, '%Y-%m-%d').date()
+                if attr in ['start_date', 'end_date', 'date'] and value: value = datetime.strptime(value, '%Y-%m-%d').date()
                 setattr(item, attr, value)
             db.session.commit()
             return item.to_dict(), 200
@@ -202,7 +197,6 @@ class ResourceById(Resource):
         return {}, 204
 
 # --- API Resource Mapping ---
-# Note: No /api prefix is needed here because it's handled by Api(app, prefix='/api')
 class Properties(ResourceList): model = Property
 class PropertyById(ResourceById): model = Property
 class Units(ResourceList): model = Unit
@@ -223,12 +217,11 @@ api.add_resource(Logout, '/logout')
 api.add_resource(Profile, '/profile')
 api.add_resource(DashboardSummary, '/dashboard_summary')
 api.add_resource(PropertyFinancials, '/reports/property_financials')
-
 api.add_resource(Properties, "/properties")
 api.add_resource(PropertyById, "/properties/<int:id>")
 api.add_resource(Units, "/units")
 api.add_resource(UnitById, "/units/<int:id>")
-api.add_gresource(Tenants, "/tenants")
+api.add_resource(Tenants, "/tenants") # THIS IS THE CORRECTED LINE
 api.add_resource(TenantById, "/tenants/<int:id>")
 api.add_resource(Leases, "/leases")
 api.add_resource(LeaseById, "/leases/<int:id>")
