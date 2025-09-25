@@ -9,25 +9,27 @@ from collections import defaultdict
 
 # --- App Configuration ---
 app = Flask(__name__)
-db_url = os.environ.get('DATABASE_URL', 'sqlite:///app.db')
-if db_url.startswith("postgres://"):
+db_url = os.environ.get('DATABASE_URL')
+if db_url and db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
+else:
+    db_url = 'sqlite:///app.db'
+
 app.config["SQLALCHEMY_DATABASE_URI"] = db_url
-app.secret_key = os.environ.get('SECRET_KEY', 'dev_secret_key')
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SQLALCHEMY_ECHO"] = False # Set to True for verbose SQL logging
+app.secret_key = os.environ.get('SECRET_KEY', 'a_super_secret_key_for_dev')
 app.json.compact = False
 
 # --- Initializations ---
 migrate = Migrate(app, db)
 db.init_app(app)
 bcrypt.init_app(app)
-api = Api(app)
-# This MUST be updated after you deploy your frontend
-CLIENT_URL = os.environ.get('CLIENT_URL', 'http://localhost:5173')
-CORS(app, supports_credentials=True, origins=[CLIENT_URL])
+api = Api(app, prefix='/api') #
+CORS(app, supports_credentials=True, origins=[os.environ.get('CLIENT_URL', 'http://localhost:5173')])
 
-# --- Auth Routes ---
-@app.route("/api/register", methods=["POST"])
+# --- Auth Routes (No /api prefix needed here because of Api(prefix=...)) ---
+@app.route("/register", methods=["POST"])
 def register():
     data = request.get_json()
     username, password = data.get('username'), data.get('password')
@@ -40,7 +42,7 @@ def register():
     session['user_id'] = new_user.id
     return jsonify(new_user.to_dict()), 201
 
-@app.route("/api/login", methods=["POST"])
+@app.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
     user = User.query.filter_by(username=data.get('username')).first()
@@ -49,7 +51,7 @@ def login():
         return jsonify(user.to_dict()), 200
     return jsonify({'error': 'Invalid username or password'}), 401
 
-@app.route("/api/check_session", methods=["GET"])
+@app.route("/check_session", methods=["GET"])
 def check_session():
     user_id = session.get('user_id')
     if user_id:
@@ -57,12 +59,12 @@ def check_session():
         if user: return jsonify(user.to_dict()), 200
     return {}, 204
 
-@app.route("/api/logout", methods=["DELETE"])
+@app.route("/logout", methods=["DELETE"])
 def logout():
     session.pop('user_id', None)
     return jsonify({'message': 'Logged out successfully'}), 200
 
-@app.route("/api/profile", methods=["PATCH"])
+@app.route("/profile", methods=["PATCH"])
 def update_profile():
     user_id = session.get('user_id')
     if not user_id: return jsonify({'error': 'Unauthorized'}), 401
@@ -78,17 +80,11 @@ def update_profile():
 
 @app.before_request
 def check_user_logged_in():
-    # Allow all OPTIONS requests for CORS preflight
-    if request.method == 'OPTIONS':
+    open_paths = ['/register', '/login', '/check_session']
+    if request.method == 'OPTIONS' or request.path in open_paths:
         return
-
-    # Define the base paths that do not require authentication
-    open_paths = ['/api/register', '/api/login', '/api/check_session']
-
-    # If the request path is not in our list of open paths, check for a session
-    if request.path not in open_paths:
-        if 'user_id' not in session:
-            return jsonify({'error': 'Unauthorized'}), 401
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
 
 # --- Reports ---
 @app.route("/api/dashboard_summary")
