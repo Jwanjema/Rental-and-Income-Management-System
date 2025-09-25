@@ -1,113 +1,167 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import AddFormModal from './AddFormModal.jsx';
-import '../app.css';
+import { leasesApi, tenantsApi, unitsApi } from '../api.js';
+import { UserContext } from '../context/User.jsx';
 
 const Leases = ({ searchQuery }) => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [leases, setLeases] = useState([
-    { id: 1, property: '123 Main St', tenant: 'Alice Smith', rent: 1500, status: 'Active' },
-    { id: 2, property: '456 Oak Ave', tenant: 'Bob Johnson', rent: 1200, status: 'Active' },
-  ]);
-  const [editingLease, setEditingLease] = useState(null);
+    const { user } = useContext(UserContext);
+    const [leases, setLeases] = useState([]);
+    const [tenants, setTenants] = useState([]);
+    const [units, setUnits] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingItem, setEditingItem] = useState(null);
 
-  const leaseFields = [
-    { name: 'property', label: 'Property', type: 'text', placeholder: 'Enter property address' },
-    { name: 'tenant', label: 'Tenant', type: 'text', placeholder: 'Enter tenant name' },
-    { name: 'rent', label: 'Monthly Rent', type: 'number', placeholder: 'Enter monthly rent' },
-    { name: 'status', label: 'Status', type: 'select', options: ['Active', 'Expired'] },
-  ];
+    // The enhanced form layout definition
+    const fields = [
+        { type: 'heading', label: 'Parties & Property' },
+        { name: 'tenant_id', label: 'Tenant', type: 'select', validation: { required: true }, className: 'grid-span-2' },
+        { name: 'unit_id', label: 'Unit', type: 'select', validation: { required: true }, className: 'grid-span-2' },
+        { type: 'heading', label: 'Lease Term' },
+        { name: 'start_date', label: 'Start Date', type: 'date', validation: { required: true } },
+        { name: 'end_date', label: 'End Date', type: 'date', validation: { required: true } },
+        { type: 'heading', label: 'Financials' },
+        { name: 'rent_amount', label: 'Rent Amount', type: 'number', placeholder: `e.g., 15000`, validation: { required: true, positive: true }, className: 'grid-span-2' },
+    ];
 
-  const handleOpenModal = (lease = null) => {
-    setEditingLease(lease);
-    setIsModalOpen(true);
-  };
+    const fetchData = async () => {
+        try {
+            const [leasesData, tenantsData, unitsData] = await Promise.all([
+                leasesApi.getAll(),
+                tenantsApi.getAll(),
+                unitsApi.getAll(),
+            ]);
+            setLeases(leasesData);
+            setTenants(tenantsData);
+            setUnits(unitsData);
+        } catch (error) {
+            console.error("Failed to fetch data:", error);
+        } finally {
+            if (loading) setLoading(false);
+        }
+    };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingLease(null);
-  };
+    useEffect(() => {
+        fetchData();
+    }, []);
 
-  const handleAddOrUpdateLease = (newLease) => {
-    if (editingLease) {
-      setLeases(prevLeases =>
-        prevLeases.map(l => (l.id === editingLease.id ? { ...newLease, id: l.id } : l))
-      );
-    } else {
-      setLeases(prevLeases => {
-        const newId = Math.max(...prevLeases.map(l => l.id), 0) + 1;
-        return [...prevLeases, { ...newLease, id: newId }];
-      });
-    }
-    handleCloseModal();
-  };
+    const handleOpenModal = (item = null) => {
+        setEditingItem(item);
+        setIsModalOpen(true);
+    };
 
-  const handleDeleteLease = (id) => {
-    setLeases(prevLeases => prevLeases.filter(l => l.id !== id));
-  };
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setEditingItem(null);
+    };
 
-  const filteredLeases = leases.filter(lease =>
-    lease.property.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    lease.tenant.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    const handleFormSubmit = async (formData) => {
+        const payload = {
+            ...formData,
+            tenant_id: parseInt(formData.tenant_id),
+            unit_id: parseInt(formData.unit_id),
+            rent_amount: parseFloat(formData.rent_amount),
+        };
+        try {
+            if (editingItem) {
+                await leasesApi.update(editingItem.id, payload);
+            } else {
+                await leasesApi.add(payload);
+            }
+            await fetchData();
+        } catch (error) {
+            console.error("Failed to save lease:", error);
+        } finally {
+            handleCloseModal();
+        }
+    };
 
-  return (
-    <div className="page-content" style={{ padding: '2rem', backgroundColor: '#f4f7f9', minHeight: '100vh' }}>
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+    const handleDelete = async (id) => {
+        if (window.confirm("Are you sure? This will delete the lease and all its payments.")) {
+            try {
+                await leasesApi.delete(id);
+                fetchData();
+            } catch (error) {
+                console.error("Failed to delete lease:", error);
+            }
+        }
+    };
+
+    const getName = (id, list) => list.find(item => item.id === id)?.name || 'N/A';
+    const getUnitInfo = (id) => {
+        const unit = units.find(u => u.id === id);
+        return unit ? `${unit.unit_number} (${unit.property.name})` : 'N/A';
+    };
+
+    const filteredData = leases.filter(item =>
+        getName(item.tenant_id, tenants).toLowerCase().includes(searchQuery.toLowerCase()) ||
+        getUnitInfo(item.unit_id).toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const modalInitialData = editingItem ? {
+        ...editingItem,
+        start_date: editingItem.start_date?.split('T')[0],
+        end_date: editingItem.end_date?.split('T')[0],
+    } : {};
+
+    const availableUnitsForModal = units.filter(unit => {
+        if (unit.status === 'vacant') return true;
+        if (editingItem && unit.id === editingItem.unit_id) return true;
+        return false;
+    });
+
+    if (loading) return <h1>Loading Leases...</h1>;
+
+    return (
         <div>
-          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>Leases</h1>
-          <p style={{ margin: '0.5rem 0 0', color: '#6c757d' }}>Track your property leases and their status</p>
+            <div className="page-header">
+                <div><h1>Leases</h1><p>Manage all lease agreements</p></div>
+                <button className="submit-button" onClick={() => handleOpenModal()}>+ Add Lease</button>
+            </div>
+            <div className="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tenant</th>
+                            <th>Unit</th>
+                            <th>Rent</th>
+                            <th>Balance</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filteredData.map(item => (
+                            <tr key={item.id}>
+                                <td>{getName(item.tenant_id, tenants)}</td>
+                                <td>{getUnitInfo(item.unit_id)}</td>
+                                <td>{user.currency} {item.rent_amount.toLocaleString()}</td>
+                                <td>{user.currency} {item.balance.toLocaleString()}</td>
+                                <td><span className={`status-badge status-${item.status.replace(/\s+/g, '-').toLowerCase()}`}>{item.status}</span></td>
+                                <td className="action-buttons">
+                                    <button onClick={() => handleOpenModal(item)}>Edit</button>
+                                    <button onClick={() => handleDelete(item.id)}>Delete</button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            {isModalOpen && (
+                <AddFormModal
+                    title={editingItem ? "Edit Lease" : "Add New Lease"}
+                    fields={fields}
+                    initialData={modalInitialData}
+                    onSubmit={handleFormSubmit}
+                    onClose={handleCloseModal}
+                    selectOptions={{
+                        tenant_id: tenants.map(t => ({ value: t.id, label: t.name })),
+                        unit_id: availableUnitsForModal.map(u => ({ value: u.id, label: `${u.unit_number} (${u.property.name})` })),
+                    }}
+                />
+            )}
         </div>
-        <button onClick={() => handleOpenModal()} style={{
-          backgroundColor: '#007bff',
-          color: 'white',
-          border: 'none',
-          padding: '0.75rem 1.5rem',
-          borderRadius: '0.25rem',
-          cursor: 'pointer',
-          fontWeight: 'bold'
-        }}>
-          + Add Lease
-        </button>
-      </div>
-
-      <div className="table-container" style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 0.5rem 1rem rgba(0, 0, 0, 0.05)', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead style={{ backgroundColor: '#f8f9fa' }}>
-            <tr>
-              <th style={{ padding: '1rem', textAlign: 'left', color: '#6c757d', fontWeight: 'normal' }}>Property</th>
-              <th style={{ padding: '1rem', textAlign: 'left', color: '#6c757d', fontWeight: 'normal' }}>Tenant</th>
-              <th style={{ padding: '1rem', textAlign: 'left', color: '#6c757d', fontWeight: 'normal' }}>Monthly Rent</th>
-              <th style={{ padding: '1rem', textAlign: 'left', color: '#6c757d', fontWeight: 'normal' }}>Status</th>
-              <th style={{ padding: '1rem', textAlign: 'left', color: '#6c757d', fontWeight: 'normal' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredLeases.map(lease => (
-              <tr key={lease.id} style={{ borderBottom: '1px solid #dee2e6' }}>
-                <td style={{ padding: '1rem' }}>{lease.property}</td>
-                <td style={{ padding: '1rem' }}>{lease.tenant}</td>
-                <td style={{ padding: '1rem' }}>Ksh {lease.rent}</td>
-                <td style={{ padding: '1rem' }}>{lease.status}</td>
-                <td style={{ padding: '1rem', display: 'flex', gap: '0.5rem' }}>
-                  <button onClick={() => handleOpenModal(lease)} style={{ border: 'none', background: 'none', color: '#007bff', cursor: 'pointer' }}>Edit</button>
-                  <button onClick={() => handleDeleteLease(lease.id)} style={{ border: 'none', background: 'none', color: '#dc3545', cursor: 'pointer' }}>Delete</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {isModalOpen && (
-        <AddFormModal
-          title={editingLease ? "Edit Lease" : "Add New Lease"}
-          fields={leaseFields}
-          initialData={editingLease}
-          onSubmit={handleAddOrUpdateLease}
-          onClose={handleCloseModal}
-        />
-      )}
-    </div>
-  );
+    );
 };
 
 export default Leases;

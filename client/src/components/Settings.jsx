@@ -1,129 +1,114 @@
-import React, { useState } from 'react';
-import '../app.css';
+import React, { useState, useContext } from 'react';
+import { UserContext } from '../context/User.jsx';
 
-const Settings = ({ currentTheme, setTheme }) => {
-  const [name, setName] = useState('Admin');
-  const [email, setEmail] = useState('admin@rentals.co');
-  const [password, setPassword] = useState('');
+const Settings = ({ setTheme }) => {
+    const { user, setUser } = useContext(UserContext);
+    
+    // State for profile form
+    const [username, setUsername] = useState(user.username);
+    const [currency, setCurrency] = useState(user.currency || 'Ksh');
 
-  const handleSave = (e) => {
-    e.preventDefault();
-    // In a real application, you would send this data to a backend server.
-    // For now, we'll just show an alert to confirm it's working.
-    alert('Settings saved! (Data is not persisted)');
-    console.log('Saved data:', { name, email, password });
-  };
+    // State for password form
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    
+    // Feedback messages
+    const [feedback, setFeedback] = useState({ message: '', error: false });
 
-  return (
-    <div className="page-content" style={{ padding: '2rem', backgroundColor: currentTheme.background, minHeight: '100vh', color: currentTheme.text }}>
-      <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>Settings</h1>
-        <p style={{ margin: '0.5rem 0 0', color: '#6c757d' }}>Manage your account and app settings</p>
-      </div>
+    const handleProfileUpdate = async (e) => {
+        e.preventDefault();
+        try {
+            const response = await fetch('/api/profile', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ username, currency }),
+            });
+            const updatedUser = await response.json();
+            if (response.ok) {
+                setUser(updatedUser);
+                setFeedback({ message: 'Profile updated successfully!', error: false });
+            } else {
+                throw new Error(updatedUser.error);
+            }
+        } catch (err) {
+            setFeedback({ message: err.message, error: true });
+        }
+    };
 
-      <div style={{ display: 'grid', gap: '2rem', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
+    const handlePasswordChange = async (e) => {
+        e.preventDefault();
+        try {
+            const response = await fetch('/api/profile', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setFeedback({ message: 'Password changed successfully!', error: false });
+                setCurrentPassword('');
+                setNewPassword('');
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (err) {
+            setFeedback({ message: err.message, error: true });
+        }
+    };
 
-        {/* Account Information Section */}
-        <div style={{ backgroundColor: currentTheme.card, padding: '2rem', borderRadius: '0.5rem', boxShadow: '0 0.5rem 1rem rgba(0, 0, 0, 0.05)' }}>
-          <h3 style={{ marginTop: 0 }}>Account Information</h3>
-          <form onSubmit={handleSave}>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: `1px solid ${currentTheme.border}`,
-                  borderRadius: '4px',
-                  backgroundColor: currentTheme.background,
-                  color: currentTheme.text
-                }}
-              />
+
+    return (
+        <div>
+            <div className="page-header"><h1>Settings</h1></div>
+
+            {feedback.message && (
+                <div style={{ padding: '1rem', marginBottom: '1rem', borderRadius: '4px', background: feedback.error ? 'var(--danger-color)' : 'var(--success-color)', color: 'white' }}>
+                    {feedback.message}
+                </div>
+            )}
+
+            <div className="dashboard-widgets">
+                <div className="widget">
+                    <h3>Profile & Preferences</h3>
+                    <form onSubmit={handleProfileUpdate}>
+                        <div className="form-group">
+                            <label>Username</label>
+                            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} />
+                        </div>
+                        <div className="form-group">
+                            <label>Currency Symbol</label>
+                            <input type="text" value={currency} onChange={(e) => setCurrency(e.target.value)} />
+                        </div>
+                        <button type="submit" className="submit-button">Save Profile</button>
+                    </form>
+                </div>
+
+                <div className="widget">
+                    <h3>Change Password</h3>
+                    <form onSubmit={handlePasswordChange}>
+                        <div className="form-group">
+                            <label>Current Password</label>
+                            <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+                        </div>
+                        <div className="form-group">
+                            <label>New Password</label>
+                            <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+                        </div>
+                        <button type="submit" className="submit-button">Update Password</button>
+                    </form>
+                </div>
             </div>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: `1px solid ${currentTheme.border}`,
-                  borderRadius: '4px',
-                  backgroundColor: currentTheme.background,
-                  color: currentTheme.text
-                }}
-              />
+             <div className="widget" style={{marginTop: '2rem'}}>
+                <h3>Theme Settings</h3>
+                <div style={{display: 'flex', gap: '1rem'}}>
+                    <button type="button" className="submit-button" onClick={() => setTheme('light')}>Light Theme</button>
+                    <button type="button" className="cancel-button" onClick={() => setTheme('dark')}>Dark Theme</button>
+                </div>
             </div>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: `1px solid ${currentTheme.border}`,
-                  borderRadius: '4px',
-                  backgroundColor: currentTheme.background,
-                  color: currentTheme.text
-                }}
-              />
-            </div>
-            <button
-              type="submit"
-              style={{
-                backgroundColor: currentTheme.primary,
-                color: 'white',
-                border: 'none',
-                padding: '0.75rem 1.5rem',
-                borderRadius: '0.25rem',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                marginTop: '1rem'
-              }}
-            >
-              Save Changes
-            </button>
-          </form>
         </div>
-
-        {/* Theme Settings Section */}
-        <div style={{ backgroundColor: currentTheme.card, padding: '2rem', borderRadius: '0.5rem', boxShadow: '0 0.5rem 1rem rgba(0, 0, 0, 0.05)' }}>
-          <h3 style={{ marginTop: 0 }}>Theme Settings</h3>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button onClick={() => setTheme('light')} style={{
-              backgroundColor: currentTheme.background,
-              color: currentTheme.text,
-              border: `1px solid ${currentTheme.border}`,
-              padding: '0.75rem 1.5rem',
-              borderRadius: '0.25rem',
-              cursor: 'pointer',
-              fontWeight: 'bold'
-            }}>
-              Light Theme
-            </button>
-            <button onClick={() => setTheme('dark')} style={{
-              backgroundColor: currentTheme.background,
-              color: currentTheme.text,
-              border: `1px solid ${currentTheme.border}`,
-              padding: '0.75rem 1.5rem',
-              borderRadius: '0.25rem',
-              cursor: 'pointer',
-              fontWeight: 'bold'
-            }}>
-              Dark Theme
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 export default Settings;

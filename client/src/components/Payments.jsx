@@ -1,116 +1,99 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import AddFormModal from './AddFormModal.jsx';
-import '../app.css';
+import { paymentsApi, leasesApi } from '../api.js';
+import { UserContext } from '../context/User.jsx';
 
 const Payments = ({ searchQuery }) => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [payments, setPayments] = useState([
-    { id: 1, property: '123 Main St', tenant: 'Alice Smith', amount: 1500, date: '2025-09-24', status: 'Paid' },
-    { id: 2, property: '789 Pine Ln', tenant: 'Jane Doe', amount: 1800, date: '2025-09-24', status: 'Pending' },
-  ]);
-  const [editingPayment, setEditingPayment] = useState(null);
+    const { user } = useContext(UserContext);
+    const [payments, setPayments] = useState([]);
+    const [leases, setLeases] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingItem, setEditingItem] = useState(null);
 
-  const paymentFields = [
-    { name: 'property', label: 'Property', type: 'text', placeholder: 'Enter property address' },
-    { name: 'tenant', label: 'Tenant', type: 'text', placeholder: 'Enter tenant name' },
-    { name: 'amount', label: 'Amount', type: 'number', placeholder: 'Enter payment amount' },
-    { name: 'date', label: 'Date', type: 'text', placeholder: 'YYYY-MM-DD' },
-    { name: 'status', label: 'Status', type: 'select', options: ['Paid', 'Pending', 'Overdue'] },
-  ];
+    const fields = [
+        { name: 'lease_id', label: 'Lease Agreement', type: 'select', validation: { required: true }, className: 'grid-span-2' },
+        { name: 'amount', label: 'Amount', type: 'number', placeholder: 'e.g., 15000', validation: { required: true, positive: true } },
+        { name: 'date', label: 'Payment Date', type: 'date', validation: { required: true } },
+        { name: 'method', label: 'Method', type: 'select', options: [{ value: 'cash', label: 'Cash' }, { value: 'bank_transfer', label: 'Bank Transfer' }, { value: 'mpesa', label: 'M-Pesa' }], validation: { required: true }, className: 'grid-span-2' },
+    ];
 
-  const handleOpenModal = (payment = null) => {
-    setEditingPayment(payment);
-    setIsModalOpen(true);
-  };
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const [paymentsData, leasesData] = await Promise.all([paymentsApi.getAll(), leasesApi.getAll()]);
+            setPayments(paymentsData);
+            setLeases(leasesData);
+        } catch (error) { console.error("Failed to fetch data:", error); }
+        finally { setLoading(false); }
+    };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingPayment(null);
-  };
+    useEffect(() => { fetchData(); }, []);
 
-  const handleAddOrUpdatePayment = (newPayment) => {
-    if (editingPayment) {
-      setPayments(prevPayments =>
-        prevPayments.map(p => (p.id === editingPayment.id ? { ...newPayment, id: p.id } : p))
-      );
-    } else {
-      setPayments(prevPayments => {
-        const newId = Math.max(...prevPayments.map(p => p.id), 0) + 1;
-        return [...prevPayments, { ...newPayment, id: newId }];
-      });
-    }
-    handleCloseModal();
-  };
+    const handleOpenModal = (item = null) => {
+        const initialData = item ? { ...item, date: item.date?.split('T')[0] } : {};
+        setEditingItem(item);
+        setIsModalOpen(true);
+    };
 
-  const handleDeletePayment = (id) => {
-    setPayments(prevPayments => prevPayments.filter(p => p.id !== id));
-  };
+    const handleCloseModal = () => { setIsModalOpen(false); setEditingItem(null); };
 
-  const filteredPayments = payments.filter(payment =>
-    payment.property.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    payment.tenant.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    const handleFormSubmit = async (formData) => {
+        const payload = { ...formData, lease_id: parseInt(formData.lease_id), amount: parseFloat(formData.amount) };
+        try {
+            if (editingItem) { await paymentsApi.update(editingItem.id, payload); }
+            else { await paymentsApi.add(payload); }
+            fetchData();
+        } catch (error) { console.error("Failed to save payment:", error); }
+        finally { handleCloseModal(); }
+    };
 
-  return (
-    <div className="page-content" style={{ padding: '2rem', backgroundColor: '#f4f7f9', minHeight: '100vh' }}>
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+    const handleDelete = async (id) => {
+        if (window.confirm("Are you sure? This action cannot be undone.")) {
+            try { await paymentsApi.delete(id); fetchData(); }
+            catch (error) { console.error("Failed to delete payment:", error); }
+        }
+    };
+    
+    const getLeaseInfo = (leaseId) => { const lease = leases.find(l => l.id === leaseId); return lease ? `${lease.tenant.name} - Unit ${lease.unit.unit_number}` : 'N/A'; };
+    const filteredData = payments.filter(item => getLeaseInfo(item.lease_id).toLowerCase().includes(searchQuery.toLowerCase()));
+
+    if (loading) return <h1>Loading Payments...</h1>;
+
+    return (
         <div>
-          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>Payments</h1>
-          <p style={{ margin: '0.5rem 0 0', color: '#6c757d' }}>Manage your incoming rental payments</p>
+            <div className="page-header">
+                <div><h1>Payments</h1><p>Track all received payments</p></div>
+                <button className="submit-button" onClick={() => handleOpenModal()}>+ Add Payment</button>
+            </div>
+            <div className="table-container">
+                <table>
+                    <thead><tr><th>Lease Details</th><th>Amount</th><th>Date</th><th>Method</th><th>Actions</th></tr></thead>
+                    <tbody>
+                        {filteredData.map(item => (
+                            <tr key={item.id}>
+                                <td>{getLeaseInfo(item.lease_id)}</td>
+                                <td>{user.currency} {item.amount.toLocaleString()}</td>
+                                <td>{item.date.split('T')[0]}</td>
+                                <td>{item.method}</td>
+                                <td className="action-buttons"><button onClick={() => handleOpenModal(item)}>Edit</button><button onClick={() => handleDelete(item.id)}>Delete</button></td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            {isModalOpen && (
+                <AddFormModal
+                    title={editingItem ? "Edit Payment" : "Add Payment"}
+                    fields={fields}
+                    initialData={editingItem || {}}
+                    onSubmit={handleFormSubmit}
+                    onClose={handleCloseModal}
+                    selectOptions={{ lease_id: leases.map(l => ({ value: l.id, label: `${l.tenant.name} (Unit ${l.unit.unit_number})` })) }}
+                />
+            )}
         </div>
-        <button onClick={() => handleOpenModal()} style={{
-          backgroundColor: '#007bff',
-          color: 'white',
-          border: 'none',
-          padding: '0.75rem 1.5rem',
-          borderRadius: '0.25rem',
-          cursor: 'pointer',
-          fontWeight: 'bold'
-        }}>
-          + Add Payment
-        </button>
-      </div>
-
-      <div className="table-container" style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 0.5rem 1rem rgba(0, 0, 0, 0.05)', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead style={{ backgroundColor: '#f8f9fa' }}>
-            <tr>
-              <th style={{ padding: '1rem', textAlign: 'left', color: '#6c757d', fontWeight: 'normal' }}>Property</th>
-              <th style={{ padding: '1rem', textAlign: 'left', color: '#6c757d', fontWeight: 'normal' }}>Tenant</th>
-              <th style={{ padding: '1rem', textAlign: 'left', color: '#6c757d', fontWeight: 'normal' }}>Amount</th>
-              <th style={{ padding: '1rem', textAlign: 'left', color: '#6c757d', fontWeight: 'normal' }}>Date</th>
-              <th style={{ padding: '1rem', textAlign: 'left', color: '#000408ff', fontWeight: 'normal' }}>Status</th>
-              <th style={{ padding: '1rem', textAlign: 'left', color: '#6c757d', fontWeight: 'normal' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredPayments.map(payment => (
-              <tr key={payment.id} style={{ borderBottom: '1px solid #dee2e6' }}>
-                <td style={{ padding: '1rem' }}>{payment.property}</td>
-                <td style={{ padding: '1rem' }}>{payment.tenant}</td>
-                <td style={{ padding: '1rem' }}>Ksh {payment.amount}</td>
-                <td style={{ padding: '1rem' }}>{payment.date}</td>
-                <td style={{ padding: '1rem' }}>{payment.status}</td>
-                <td style={{ padding: '1rem', display: 'flex', gap: '0.5rem' }}>
-                  <button onClick={() => handleOpenModal(payment)} style={{ border: 'none', background: 'none', color: '#010a14ff', cursor: 'pointer' }}>Edit</button>
-                  <button onClick={() => handleDeletePayment(payment.id)} style={{ border: 'none', background: 'none', color: '#dc3545', cursor: 'pointer' }}>Delete</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {isModalOpen && (
-        <AddFormModal
-          title={editingPayment ? "Edit Payment" : "Add New Payment"}
-          fields={paymentFields}
-          initialData={editingPayment}
-          onSubmit={handleAddOrUpdatePayment}
-          onClose={handleCloseModal}
-        />
-      )}
-    </div>
-  );
+    );
 };
 
 export default Payments;

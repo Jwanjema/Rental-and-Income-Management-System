@@ -1,35 +1,36 @@
-import React from 'react';
+import React, { useContext } from 'react';
+import { UserContext } from '../context/User.jsx';
 
-const Topbar = ({ currentTheme, setTheme }) => {
+const Topbar = ({ toggleSidebar, searchQuery, setSearchQuery }) => {
+  const { user, setUser } = useContext(UserContext);
+  
+  const handleLogout = () => {
+    fetch("/api/logout", {
+      method: "DELETE",
+      credentials: 'include' // <-- This was the missing piece
+    })
+    .then(r => {
+        if (r.ok) {
+            setUser(null); // This will trigger the redirect to the login page
+        }
+    });
+  };
+
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'flex-end',
-      alignItems: 'center',
-      padding: '1.5rem 2rem',
-      backgroundColor: currentTheme.card,
-      boxShadow: '0 0 10px rgba(0,0,0,0.05)',
-      marginBottom: '2rem',
-      color: currentTheme.text,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <button onClick={() => setTheme('blue')} style={{ border: `1px solid ${currentTheme.primary}`, color: currentTheme.primary, background: 'none', padding: '0.75rem 1.5rem', borderRadius: '0.25rem', cursor: 'pointer' }}>
-          Blue
-        </button>
-        <button onClick={() => setTheme('teal')} style={{ border: `1px solid ${currentTheme.primary}`, color: currentTheme.primary, background: 'none', padding: '0.75rem 1.5rem', borderRadius: '0.25rem', cursor: 'pointer' }}>
-          Teal
-        </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <div style={{ backgroundColor: currentTheme.primary, color: 'white', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: 'bold' }}>
-            U
-          </div>
-          <div style={{ lineHeight: '1.2' }}>
-            <div style={{ fontWeight: 'bold' }}>Admin</div>
-            <div style={{ color: currentTheme.text, fontSize: '0.8rem' }}>admin@rentals.co</div>
-          </div>
-        </div>
+    <header className="topbar">
+      <button className="menu-toggle" onClick={toggleSidebar}>☰</button>
+      <input
+        type="text"
+        placeholder="Search..."
+        className="search-input"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+      />
+      <div className="topbar-right">
+        <span>Welcome, {user.username}</span>
+        <button onClick={handleLogout} className="cancel-button">Logout</button>
       </div>
-    </div>
+    </header>
   );
 };
 

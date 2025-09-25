@@ -1,148 +1,117 @@
 import React, { useState, useEffect } from 'react';
-import { getUnits, getProperties, addUnit, updateUnit, deleteUnit } from '../api.js';
 import AddFormModal from './AddFormModal.jsx';
-import '../app.css';
+import { unitsApi, propertiesApi } from '../api.js';
 
 const Units = ({ searchQuery }) => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [units, setUnits] = useState([]);
-  const [properties, setProperties] = useState([]);
-  const [editingUnit, setEditingUnit] = useState(null);
-  const [loading, setLoading] = useState(true);
+    const [units, setUnits] = useState([]);
+    const [properties, setProperties] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingItem, setEditingItem] = useState(null);
 
-  const unitFields = [
-    { name: 'unit_number', label: 'Unit Number', type: 'text', placeholder: 'e.g., 1A, 2B' },
-    { name: 'status', label: 'Status', type: 'select', options: ['vacant', 'occupied'] },
-    { name: 'property_id', label: 'Property', type: 'select', options: properties.map(p => ({ value: p.id, label: p.name })) },
-  ];
+    const fields = [
+        { name: 'unit_number', label: 'Unit Number', type: 'text', validation: { required: true } },
+        { name: 'property_id', label: 'Property', type: 'select', validation: { required: true } },
+        { name: 'status', label: 'Status', type: 'select', options: [{ value: 'vacant', label: 'Vacant' }, { value: 'occupied', label: 'Occupied' }], validation: { required: true } },
+    ];
 
-  const refreshData = async () => {
-    setLoading(true);
-    try {
-      const unitsData = await getUnits();
-      const propertiesData = await getProperties();
-      setUnits(unitsData);
-      setProperties(propertiesData);
-    } catch (error) {
-      console.error("Failed to fetch units and properties:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const [unitsData, propertiesData] = await Promise.all([
+                unitsApi.getAll(),
+                propertiesApi.getAll(),
+            ]);
+            setUnits(unitsData);
+            setProperties(propertiesData);
+        } catch (error) {
+            console.error("Failed to fetch data:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  useEffect(() => {
-    refreshData();
-  }, []);
+    useEffect(() => { fetchData(); }, []);
 
-  const handleOpenModal = (unit = null) => {
-    setEditingUnit(unit);
-    setIsModalOpen(true);
-  };
+    const handleOpenModal = (item = null) => {
+        setEditingItem(item);
+        setIsModalOpen(true);
+    };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingUnit(null);
-  };
+    const handleCloseModal = () => setIsModalOpen(false);
 
-  const handleAddOrUpdateUnit = async (newUnit) => {
-    try {
-      if (editingUnit) {
-        await updateUnit(editingUnit.id, newUnit);
-      } else {
-        await addUnit(newUnit);
-      }
-      refreshData();
-    } catch (error) {
-      console.error("Failed to save unit:", error.message);
-    } finally {
-      handleCloseModal();
-    }
-  };
+    const handleFormSubmit = async (formData) => {
+        try {
+            const payload = { ...formData, property_id: parseInt(formData.property_id, 10) };
+            if (editingItem) {
+                await unitsApi.update(editingItem.id, payload);
+            } else {
+                await unitsApi.add(payload);
+            }
+            fetchData();
+        } catch (error) {
+            console.error("Failed to save unit:", error);
+        } finally {
+            handleCloseModal();
+        }
+    };
 
-  const handleDeleteUnit = async (id) => {
-    try {
-      await deleteUnit(id);
-      refreshData();
-    } catch (error) {
-      console.error("Failed to delete unit:", error.message);
-    }
-  };
+    const handleDelete = async (id) => {
+        if (window.confirm("Are you sure you want to delete this unit?")) {
+            try {
+                await unitsApi.delete(id);
+                fetchData();
+            } catch (error) {
+                console.error("Failed to delete unit:", error);
+            }
+        }
+    };
 
-  const getPropertyName = (propertyId) => {
-    const property = properties.find(p => p.id === propertyId);
-    return property ? property.name : 'Unknown';
-  };
-
-  const filteredUnits = units.filter(unit =>
-    unit.unit_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    unit.status.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    getPropertyName(unit.property_id).toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  if (loading) {
-    return (
-      <div className="page-content" style={{ padding: '2rem' }}>
-        <h1>Loading Units...</h1>
-      </div>
+    const getPropertyName = (propertyId) => properties.find(p => p.id === propertyId)?.name || 'N/A';
+    
+    const filteredData = units.filter(unit =>
+        (unit.unit_number?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        getPropertyName(unit.property_id).toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }
 
-  return (
-    <div className="page-content">
-      <div className="page-header">
+    if (loading) return <h1>Loading Units...</h1>;
+
+    return (
         <div>
-          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>Units</h1>
-          <p style={{ margin: '0.5rem 0 0', color: '#6c757d' }}>Manage rental units</p>
+            <div className="page-header">
+                <div><h1>Units</h1><p>Manage all individual units</p></div>
+                <button className="submit-button" onClick={() => handleOpenModal()}>+ Add Unit</button>
+            </div>
+            <div className="table-container">
+                <table>
+                    <thead><tr><th>Unit Number</th><th>Property</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody>
+                        {filteredData.map(item => (
+                            <tr key={item.id}>
+                                <td>{item.unit_number}</td>
+                                <td>{getPropertyName(item.property_id)}</td>
+                                <td><span className={`status-badge status-${item.status}`}>{item.status}</span></td>
+                                <td className="action-buttons">
+                                    <button onClick={() => handleOpenModal(item)}>Edit</button>
+                                    <button onClick={() => handleDelete(item.id)}>Delete</button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            {isModalOpen && (
+                <AddFormModal
+                    title={editingItem ? "Edit Unit" : "Add Unit"}
+                    fields={fields}
+                    initialData={editingItem || {}}
+                    onSubmit={handleFormSubmit}
+                    onClose={handleCloseModal}
+                    selectOptions={{ property_id: properties.map(p => ({ value: p.id, label: p.name })) }}
+                />
+            )}
         </div>
-        <button onClick={() => handleOpenModal()} style={{
-          backgroundColor: '#007bff',
-          color: 'white',
-          border: 'none',
-          padding: '0.75rem 1.5rem',
-          borderRadius: '0.25rem',
-          cursor: 'pointer',
-          fontWeight: 'bold'
-        }}>
-          + Add Unit
-        </button>
-      </div>
-
-      <div className="table-container">
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#f8f9fa' }}>
-              <th style={{ padding: '1rem', textAlign: 'left', color: '#6c757d', fontWeight: 'normal' }}>Unit Number</th>
-              <th style={{ padding: '1rem', textAlign: 'left', color: '#6c757d', fontWeight: 'normal' }}>Status</th>
-              <th style={{ padding: '1rem', textAlign: 'left', color: '#6c757d', fontWeight: 'normal' }}>Property</th>
-              <th style={{ padding: '1rem', textAlign: 'left', color: '#6c757d', fontWeight: 'normal' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredUnits.map(unit => (
-              <tr key={unit.id} style={{ borderBottom: '1px solid #dee2e6' }}>
-                <td style={{ padding: '1rem' }}>{unit.unit_number}</td>
-                <td style={{ padding: '1rem' }}>{unit.status}</td>
-                <td style={{ padding: '1rem' }}>{getPropertyName(unit.property_id)}</td>
-                <td style={{ padding: '1rem', display: 'flex', gap: '0.5rem' }}>
-                  <button onClick={() => handleOpenModal(unit)} style={{ border: 'none', background: 'none', color: '#007bff', cursor: 'pointer' }}>Edit</button>
-                  <button onClick={() => handleDeleteUnit(unit.id)} style={{ border: 'none', background: 'none', color: '#dc3545', cursor: 'pointer' }}>Delete</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {isModalOpen && (
-        <AddFormModal
-          title={editingUnit ? "Edit Unit" : "Add New Unit"}
-          fields={unitFields}
-          initialData={editingUnit}
-          onSubmit={handleAddOrUpdateUnit}
-          onClose={handleCloseModal}
-        />
-      )}
-    </div>
-  );
+    );
 };
 
 export default Units;
