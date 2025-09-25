@@ -78,16 +78,17 @@ def update_profile():
 
 @app.before_request
 def check_user_logged_in():
-    if not request.path.startswith('/api/'): return
-    open_endpoints = ['register', 'login', 'check_session']
-    # Convert Flask-RESTful endpoint names to match
-    restful_endpoints = [e.replace('_', '').lower() for e in open_endpoints]
-    
-    # Check if the request endpoint (without the resource name part) is in our list
-    request_endpoint_base = request.endpoint.split('.')[0] if '.' in request.endpoint else request.endpoint
-    if request_endpoint_base in restful_endpoints: return
+    # Allow all OPTIONS requests for CORS preflight
+    if request.method == 'OPTIONS':
+        return
 
-    if 'user_id' not in session: return jsonify({'error': 'Unauthorized'}), 401
+    # Define the base paths that do not require authentication
+    open_paths = ['/api/register', '/api/login', '/api/check_session']
+
+    # If the request path is not in our list of open paths, check for a session
+    if request.path not in open_paths:
+        if 'user_id' not in session:
+            return jsonify({'error': 'Unauthorized'}), 401
 
 # --- Reports ---
 @app.route("/api/dashboard_summary")
