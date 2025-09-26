@@ -1,8 +1,7 @@
 // client/api.js
 
-// Now that vite.config.js handles the full URL via the 'base' config,
-// we can use an empty string here. The build process will prepend the full URL.
-const API_BASE_URL = '';
+// API_BASE_URL will be the Render URL in Vercel/Netlify, or empty locally.
+const API_BASE_URL = import.meta.env.VITE_APP_API_URL || '';
 
 async function handleApiCall(url, method, body = null) {
   const options = {
@@ -12,19 +11,35 @@ async function handleApiCall(url, method, body = null) {
     credentials: 'include',
   };
 
-  // This correctly constructs the URL: e.g., https://your-app.onrender.com/login
-  const response = await fetch(`${API_BASE_URL}${url}`, options);
+  let apiUrl;
+
+  if (API_BASE_URL) {
+      // PRODUCTION (Vercel): Use the full Render URL
+      apiUrl = `${API_BASE_URL}${url}`;
+  } else {
+      // DEVELOPMENT (Local): Use the '/api' prefix to trigger the Vite proxy
+      apiUrl = `/api${url}`;
+  }
+
+  const response = await fetch(apiUrl, options);
   
   if (!response.ok) {
     if (response.status === 401) {
-      window.location.href = '/login';
+      // Allow UserContext to handle 401 on startup, but force redirect for other calls
+      if (url !== '/check_session') {
+        window.location.href = '/login'; 
+      }
     }
-    const errorData = await response.json(); 
+    const errorData = await response.json().catch(() => ({ error: `Request failed with status ${response.status}` })); 
     throw new Error(errorData.error || `Failed to perform ${method} on ${url}`);
   }
   
+  // The 204 status code is used for successful deletion (No Content) AND check_session unauthorized
   return response.status === 204 ? null : response.json();
 }
+
+// --- Auth Routes ---
+export const checkSession = () => handleApiCall(`/check_session`, 'GET');
 
 // --- Dashboard & Reports ---
 export const getDashboardSummary = () => handleApiCall(`/dashboard_summary`, 'GET');
@@ -47,4 +62,3 @@ export const tenantsApi = createApiResource('tenants');
 export const leasesApi = createApiResource('leases');
 export const paymentsApi = createApiResource('payments');
 export const expensesApi = createApiResource('expenses');
-export const checkSession = () => handleApiCall(`/check_session`, 'GET');
