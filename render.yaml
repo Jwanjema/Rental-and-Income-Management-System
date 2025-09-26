@@ -1,0 +1,37 @@
+services:
+  # ----------------------------------------------------
+  # 1. BACKEND SERVICE (Python/Flask)
+  # ----------------------------------------------------
+  - type: web
+    name: income-manager-api # <-- Set a unique, easy-to-read name (used for internal networking)
+    rootDir: backend
+    env: python
+    buildCommand: |
+      pip install gunicorn && pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    healthCheckPath: /check_session
+    envVars:
+      # CRITICAL: This MUST be set to your PostgreSQL URL (provided earlier)
+      - key: DB_URI
+        value: postgresql://postincome_user:6jYnnPJZv1lVdUVtjf601nAz4uoEEz3B@dpg-d3b814jipnbc73flerrg-a/postincome
+      # CRITICAL: Flask's secret key for session management
+      - key: FLASK_SECRET_KEY
+        generateValue: true
+
+  # ----------------------------------------------------
+  # 2. FRONTEND SERVICE (React/Vite)
+  # ----------------------------------------------------
+  - type: web
+    name: income-manager-client
+    rootDir: client
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: serve -s dist -l $PORT
+    envVars:
+      # CRITICAL FIX for 404 Error: Use the INTERNAL URL of the backend service!
+      # This points the frontend to the backend using Render's fast internal network.
+      - key: VITE_APP_API_URL
+        value: http://income-manager-api:8000
+
+    # NOTE: You must add 'serve' as a dependency in your client/package.json
+    # npm install serve --prefix client
