@@ -1,6 +1,6 @@
 import React, { useState, useContext } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { UserContext } from './context/User.jsx'; // Keep this for now, but its value is ignored
+import { UserContext } from './context/User.jsx'; // Keep, but it's not the primary control
 
 // Core App Components
 import Sidebar from './components/Sidebar.jsx';
@@ -17,11 +17,9 @@ import Expenses from './components/Expenses.jsx';
 import Reports from './components/Reports.jsx';
 import Settings from './components/Settings.jsx';
 
-// ❌ Authentication Components REMOVED to disable login page
-// import LoginPage from './components/LoginPage.jsx';
-// import SignUpPage from './components/SignUpPage.jsx'; 
+// ❌ Authentication Components are no longer imported
 
-// This component renders the main application layout for a logged-in user.
+// This component renders the main application layout.
 function LoggedInApp() {
   const [theme, setTheme] = useState('light');
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,21 +44,20 @@ function LoggedInApp() {
             <Route path="/tenants" element={<Tenants searchQuery={searchQuery} />} />
             <Route path="/leases" element={<Leases searchQuery={searchQuery} />} />
             <Route path="/payments" element={<Payments searchQuery={searchQuery} />} />
-            <Route path="/expenses" element={<Expenses searchQuery={searchQuery} />} /> 
+            <Route path="/expenses" element={<Expenses searchQuery={searchQuery} />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings setTheme={setTheme} />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>
       </div>
-    </div>
+     </div>
   );
 }
 
 // This is the main App component that handles the top-level routing logic.
 function App() {
-  // ❌ REMOVE the conditional logic completely.
-  // The application should always render the LoggedInApp.
+  // ❌ Conditional login logic removed. App always renders the dashboard.
   return (
     <BrowserRouter>
       <Routes>

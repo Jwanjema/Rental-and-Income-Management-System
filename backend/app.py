@@ -44,10 +44,10 @@ CORS(app,
               "http://127.0.0.1:5173", "http://localhost:5173"]
      )
 
-# --- Auth Routes ---
+# --- Auth Routes (NO /api prefix) ---
 
 
-@app.route("/api/register", methods=["POST"])
+@app.route("/register", methods=["POST"])
 def register():
     data = request.get_json()
     username, password = data.get('username'), data.get('password')
@@ -63,7 +63,7 @@ def register():
     return jsonify(new_user.to_dict()), 201
 
 
-@app.route("/api/login", methods=["POST"])
+@app.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
     user = User.query.filter_by(username=data.get('username')).first()
@@ -73,7 +73,7 @@ def login():
     return make_response(jsonify({'error': 'Invalid username or password'}), 401)
 
 
-@app.route("/api/check_session", methods=["GET"])
+@app.route("/check_session", methods=["GET"])
 def check_session():
     user_id = session.get('user_id')
     if user_id:
@@ -81,23 +81,21 @@ def check_session():
         if user:
             return jsonify(user.to_dict()), 200
 
-    # ✅ TEMPORARY HACK RESTORED: This forces the frontend to believe a user is logged in
+    # TEMPORARY HACK: Returns a dummy user to bypass login
     temp_user = User(id=999, username='temp_admin', currency='USD')
     return jsonify(temp_user.to_dict()), 200
 
 
-@app.route("/api/logout", methods=["DELETE"])
+@app.route("/logout", methods=["DELETE"])
 def logout():
     session.pop('user_id', None)
     return make_response(jsonify({'message': 'Logged out successfully'}), 200)
 
 
-@app.route("/api/profile", methods=["PATCH"])
+@app.route("/profile", methods=["PATCH"])
 def update_profile():
     user_id = session.get('user_id')
-    # Since we are disabling before_request, we MUST check here
     if 'user_id' not in session:
-        # Fallback for the non-logged in state
         return make_response(jsonify({'error': 'Unauthorized'}), 401)
 
     user, data = db.session.get(User, user_id), request.get_json()
@@ -114,16 +112,11 @@ def update_profile():
     return jsonify(user.to_dict()), 200
 
 
-# ❌ GLOBAL AUTH CHECK REMOVED: Commented out to allow access to all routes
-# @app.before_request
-# def check_user_logged_in():
-#     # ... (code commented out)
-#     pass
+# GLOBAL AUTH CHECK REMOVED
 
+# --- Reports API Endpoints (NO /api prefix) ---
 
-# --- Reports API Endpoints (Using the /api prefix for consistency) ---
-
-@app.route("/api/dashboard_summary")
+@app.route("/dashboard_summary")
 def get_dashboard_summary():
     leases = Lease.query.all()
     today = date.today()
@@ -141,7 +134,7 @@ def get_dashboard_summary():
     return jsonify(summary)
 
 
-@app.route("/api/reports/property_financials")
+@app.route("/reports/property_financials")
 def get_property_financials():
     property_id = request.args.get('property_id')
     year = int(request.args.get('year'))
@@ -208,6 +201,7 @@ def get_property_financials():
 
 class ResourceList(Resource):
     model = None
+    # ... (get and post methods)
 
     def get(self):
         return [item.to_dict() for item in self.model.query.all()], 200
@@ -229,6 +223,7 @@ class ResourceList(Resource):
 
 class ResourceById(Resource):
     model = None
+    # ... (get, patch, and delete methods)
 
     def get(self, id):
         item = db.session.get(self.model, id)
@@ -260,8 +255,9 @@ class ResourceById(Resource):
         db.session.commit()
         return make_response({}, 204)
 
-
 # --- Dedicated Classes for each API Endpoint ---
+
+
 class PropertyList(ResourceList):
     model = Property
 
@@ -310,19 +306,19 @@ class ExpenseById(ResourceById):
     model = Expense
 
 
-# --- API Resource Mapping (Using the /api prefix) ---
-api.add_resource(PropertyList, "/api/properties")
-api.add_resource(PropertyById, "/api/properties/<int:id>")
-api.add_resource(UnitList, "/api/units")
-api.add_resource(UnitById, "/api/units/<int:id>")
-api.add_resource(TenantList, "/api/tenants")
-api.add_resource(TenantById, "/api/tenants/<int:id>")
-api.add_resource(LeaseList, "/api/leases")
-api.add_resource(LeaseById, "/api/leases/<int:id>")
-api.add_resource(PaymentList, "/api/payments")
-api.add_resource(PaymentById, "/api/payments/<int:id>")
-api.add_resource(ExpenseList, "/api/expenses")
-api.add_resource(ExpenseById, "/api/expenses/<int:id>")
+# --- API Resource Mapping (NO /api prefix) ---
+api.add_resource(PropertyList, "/properties")
+api.add_resource(PropertyById, "/properties/<int:id>")
+api.add_resource(UnitList, "/units")
+api.add_resource(UnitById, "/units/<int:id>")
+api.add_resource(TenantList, "/tenants")
+api.add_resource(TenantById, "/tenants/<int:id>")
+api.add_resource(LeaseList, "/leases")
+api.add_resource(LeaseById, "/leases/<int:id>")
+api.add_resource(PaymentList, "/payments")
+api.add_resource(PaymentById, "/payments/<int:id>")
+api.add_resource(ExpenseList, "/expenses")
+api.add_resource(ExpenseById, "/expenses/<int:id>")
 
 
 if __name__ == "__main__":
