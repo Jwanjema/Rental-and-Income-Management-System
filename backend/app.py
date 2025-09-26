@@ -7,9 +7,13 @@ from models import db, bcrypt, User, Property, Unit, Tenant, Lease, Payment, Exp
 from datetime import datetime, date, timedelta
 from collections import defaultdict
 
+# ------------------------------
+# Database Config
+# ------------------------------
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DATABASE = os.environ.get(
-    "DB_URI", f"sqlite:///{os.path.join(BASE_DIR, 'app.db')}")
+    "DB_URI", f"sqlite:///{os.path.join(BASE_DIR, 'app.db')}"
+)
 
 app = Flask(__name__)
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
@@ -23,9 +27,9 @@ bcrypt.init_app(app)
 api = Api(app)
 CORS(app, supports_credentials=True)
 
-# --- Auth Routes ---
-
-
+# ------------------------------
+# Auth Routes
+# ------------------------------
 @app.route("/register", methods=["POST"])
 def register():
     data = request.get_json()
@@ -95,9 +99,9 @@ def check_user_logged_in():
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
 
-# --- Reports API Endpoints ---
-
-
+# ------------------------------
+# Reports API
+# ------------------------------
 @app.route("/dashboard_summary")
 def get_dashboard_summary():
     leases = Lease.query.all()
@@ -110,8 +114,18 @@ def get_dashboard_summary():
         "total_monthly_rent": sum(l.rent_amount for l in leases),
         "total_collected": sum(l.total_paid for l in leases),
         "total_pending": sum(l.balance for l in leases if l.balance > 0),
-        "expiring_leases_count": Lease.query.filter(Lease.end_date <= expiring_limit, Lease.end_date >= today).count(),
-        "overdue_leases": [{"lease_id": l.id, "tenant_name": l.tenant.name, "unit_number": l.unit.unit_number, "balance": l.balance} for l in leases if l.balance > 0]
+        "expiring_leases_count": Lease.query.filter(
+            Lease.end_date <= expiring_limit, Lease.end_date >= today
+        ).count(),
+        "overdue_leases": [
+            {
+                "lease_id": l.id,
+                "tenant_name": l.tenant.name,
+                "unit_number": l.unit.unit_number,
+                "balance": l.balance,
+            }
+            for l in leases if l.balance > 0
+        ],
     }
     return jsonify(summary)
 
@@ -120,17 +134,13 @@ def get_dashboard_summary():
 def get_property_financials():
     property_id = request.args.get('property_id')
     year = int(request.args.get('year'))
-    payments_query = Payment.query.filter(
-        db.extract('year', Payment.date) == year)
-    expenses_query = Expense.query.filter(
-        db.extract('year', Expense.date) == year)
+    payments_query = Payment.query.filter(db.extract('year', Payment.date) == year)
+    expenses_query = Expense.query.filter(db.extract('year', Expense.date) == year)
 
     if property_id and property_id != 'all':
         property_id = int(property_id)
-        payments_query = payments_query.join(Lease).join(
-            Unit).filter(Unit.property_id == property_id)
-        expenses_query = expenses_query.filter(
-            Expense.property_id == property_id)
+        payments_query = payments_query.join(Lease).join(Unit).filter(Unit.property_id == property_id)
+        expenses_query = expenses_query.filter(Expense.property_id == property_id)
 
     monthly_data = defaultdict(lambda: {'income': 0, 'expense': 0})
     for p in payments_query.all():
@@ -145,14 +155,14 @@ def get_property_financials():
         income = monthly_data[i]['income']
         expense = monthly_data[i]['expense']
         chart_data.append(
-            {"name": month_names[i-1], "Income": income, "Expense": expense, "Net Profit": income - expense})
+            {"name": month_names[i-1], "Income": income, "Expense": expense, "Net Profit": income - expense}
+        )
 
     expenses = expenses_query.all()
     category_data = defaultdict(float)
     for e in expenses:
         category_data[e.category] += e.amount
-    expense_breakdown = [{"name": cat, "value": val}
-                         for cat, val in category_data.items()]
+    expense_breakdown = [{"name": cat, "value": val} for cat, val in category_data.items()]
 
     total_income = sum(p.amount for p in payments_query.all())
     total_expense = sum(e.amount for e in expenses)
@@ -163,29 +173,32 @@ def get_property_financials():
         total_units = len(prop.units) if prop and prop.units else 0
         if total_units > 0:
             occupied_units = Unit.query.filter_by(
-                property_id=property_id, status='occupied').count()
-            occupancy_rate = (occupied_units / total_units) * \
-                100 if total_units > 0 else 0
+                property_id=property_id, status='occupied'
+            ).count()
+            occupancy_rate = (occupied_units / total_units) * 100 if total_units > 0 else 0
     else:
         total_units = Unit.query.count()
         if total_units > 0:
             occupied_units = Unit.query.filter_by(status='occupied').count()
-            occupancy_rate = (occupied_units / total_units) * \
-                100 if total_units > 0 else 0
+            occupancy_rate = (occupied_units / total_units) * 100 if total_units > 0 else 0
 
     return jsonify({
-        "total_income": total_income, "total_expense": total_expense, "net_profit": total_income - total_expense,
-        "occupancy_rate": round(occupancy_rate, 2), "monthly_breakdown": chart_data, "expense_breakdown": expense_breakdown
+        "total_income": total_income,
+        "total_expense": total_expense,
+        "net_profit": total_income - total_expense,
+        "occupancy_rate": round(occupancy_rate, 2),
+        "monthly_breakdown": chart_data,
+        "expense_breakdown": expense_breakdown,
     })
 
-# --- Generic Resources ---
-
-
+# ------------------------------
+# Generic Resources
+# ------------------------------
 class ResourceList(Resource):
     model = None
 
-    def get(self): return [item.to_dict()
-                           for item in self.model.query.all()], 200
+    def get(self):
+        return [item.to_dict() for item in self.model.query.all()], 200
 
     def post(self):
         data = request.get_json()
@@ -236,53 +249,21 @@ class ResourceById(Resource):
         return {}, 204
 
 
-class Properties(ResourceList):
-    model = Property
-
-
-class PropertyById(ResourceById):
-    model = Property
-
-
-class Units(ResourceList):
-    model = Unit
-
-
-class UnitById(ResourceById):
-    model = Unit
-
-
-class Tenants(ResourceList):
-    model = Tenant
-
-
-class TenantById(ResourceById):
-    model = Tenant
-
-
-class Leases(ResourceList):
-    model = Lease
-
-
-class LeaseById(ResourceById):
-    model = Lease
-
-
-class Payments(ResourceList):
-    model = Payment
-
-
-class PaymentById(ResourceById):
-    model = Payment
-
-
-class Expenses(ResourceList):
-    model = Expense
-
-
-class ExpenseById(ResourceById):
-    model = Expense
-
+# ------------------------------
+# Resource Bindings
+# ------------------------------
+class Properties(ResourceList): model = Property
+class PropertyById(ResourceById): model = Property
+class Units(ResourceList): model = Unit
+class UnitById(ResourceById): model = Unit
+class Tenants(ResourceList): model = Tenant
+class TenantById(ResourceById): model = Tenant
+class Leases(ResourceList): model = Lease
+class LeaseById(ResourceById): model = Lease
+class Payments(ResourceList): model = Payment
+class PaymentById(ResourceById): model = Payment
+class Expenses(ResourceList): model = Expense
+class ExpenseById(ResourceById): model = Expense
 
 api.add_resource(Properties, "/properties")
 api.add_resource(PropertyById, "/properties/<int:id>")
@@ -297,5 +278,9 @@ api.add_resource(PaymentById, "/payments/<int:id>")
 api.add_resource(Expenses, "/expenses")
 api.add_resource(ExpenseById, "/expenses/<int:id>")
 
+# ------------------------------
+# App Runner (Local + Render)
+# ------------------------------
 if __name__ == "__main__":
-    app.run(port=5555, debug=True)
+    port = int(os.environ.get("PORT", 5000))  # Render uses dynamic PORT
+    app.run(host="0.0.0.0", port=port, debug=False)

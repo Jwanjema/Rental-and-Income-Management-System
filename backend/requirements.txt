@@ -1,0 +1,8 @@
+flask
+flask-cors
+flask-restful
+flask-sqlalchemy
+flask-migrate
+flask-bcrypt
+gunicorn
+psycopg2-binary
