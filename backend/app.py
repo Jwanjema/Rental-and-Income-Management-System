@@ -22,6 +22,12 @@ app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.json.compact = False
 
+# --- CRITICAL COOKIE CONFIGURATION FOR CROSS-SITE (Vercel to Render) ---
+# These flags are essential for session cookies to work across Vercel (frontend) and Render (backend).
+app.config["SESSION_COOKIE_SAMESITE"] = "None"
+app.config["SESSION_COOKIE_SECURE"] = True
+# -----------------------------------------------------------------------
+
 migrate = Migrate(app, db)
 db.init_app(app)
 bcrypt.init_app(app)
@@ -314,4 +320,5 @@ api.add_resource(Expenses, "/expenses")
 api.add_resource(ExpenseById, "/expenses/<int:id>")
 
 if __name__ == "__main__":
-    app.run(port=5555, debug=True)
+    # Corrected local port to 5000 based on your previous port logs
+    app.run(port=5000, debug=True)
