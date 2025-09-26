@@ -3,7 +3,7 @@ from flask import Flask, jsonify, request, session, make_response
 from flask_cors import CORS
 from flask_restful import Api, Resource
 from flask_migrate import Migrate
-from .models import db, bcrypt, User, Property, Unit, Tenant, Lease, Payment, Expense
+from models import db, bcrypt, User, Property, Unit, Tenant, Lease, Payment, Expense
 from datetime import datetime, date, timedelta
 from collections import defaultdict
 
