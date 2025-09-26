@@ -47,3 +47,4 @@ export const tenantsApi = createApiResource('tenants');
 export const leasesApi = createApiResource('leases');
 export const paymentsApi = createApiResource('payments');
 export const expensesApi = createApiResource('expenses');
+export const checkSession = () => handleApiCall(`/check_session`, 'GET');
