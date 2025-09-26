@@ -10,8 +10,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     
-    // FIX: Set the base path to '/' so Vercel serves its own static assets.
-    // The VITE_APP_API_URL should NOT be used here.
+    // CRITICAL FIX: The base path MUST be '/' so Vercel serves its own static assets.
     base: '/', 
 
     server: {
