@@ -25,3 +25,5 @@ sqlalchemy-serializer==1.4.12
 typing-extensions==4.13.2; python_version >= '3.8'
 werkzeug==3.0.6; python_version >= '3.8'
 zipp==3.20.2; python_version >= '3.8'
+psycopg2-binary
+sqlalchemy==2.0.43
