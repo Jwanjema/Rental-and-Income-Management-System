@@ -47,7 +47,7 @@ CORS(app,
 # --- Auth Routes ---
 
 
-@app.route("/register", methods=["POST"])
+@app.route("/api/register", methods=["POST"])
 def register():
     data = request.get_json()
     username, password = data.get('username'), data.get('password')
@@ -63,7 +63,7 @@ def register():
     return jsonify(new_user.to_dict()), 201
 
 
-@app.route("/login", methods=["POST"])
+@app.route("/api/login", methods=["POST"])
 def login():
     data = request.get_json()
     user = User.query.filter_by(username=data.get('username')).first()
@@ -73,7 +73,7 @@ def login():
     return make_response(jsonify({'error': 'Invalid username or password'}), 401)
 
 
-@app.route("/check_session", methods=["GET"])
+@app.route("/api/check_session", methods=["GET"])
 def check_session():
     user_id = session.get('user_id')
     if user_id:
@@ -85,13 +85,13 @@ def check_session():
     return make_response(jsonify({'message': 'Not logged in'}), 401)
 
 
-@app.route("/logout", methods=["DELETE"])
+@app.route("/api/logout", methods=["DELETE"])
 def logout():
     session.pop('user_id', None)
     return make_response(jsonify({'message': 'Logged out successfully'}), 200)
 
 
-@app.route("/profile", methods=["PATCH"])
+@app.route("/api/profile", methods=["PATCH"])
 def update_profile():
     user_id = session.get('user_id')
     # This check remains important for routes not hit by before_request
@@ -112,15 +112,21 @@ def update_profile():
     return jsonify(user.to_dict()), 200
 
 
-# ✅ FIX: REFINED GLOBAL AUTH CHECK
+# ✅ REFINED GLOBAL AUTH CHECK
 # This ensures that ALL private routes are protected and forces the frontend to the login page.
 @app.before_request
 def check_user_logged_in():
     # List of endpoints that DO NOT require a user session
-    open_endpoints = ['register', 'login', 'check_session', 'static']
+    open_endpoints = ['register', 'login',
+                      'check_session', 'static', 'profile', 'logout']
 
-    # Allow OPTIONS requests (pre-flight checks) and explicitly open endpoints
-    if request.method == 'OPTIONS' or request.endpoint in open_endpoints:
+    # Check if the requested route contains an open endpoint function name
+    # We use 'in' because Flask prefixes API endpoints with the function name (e.g., 'register').
+    if request.endpoint and any(ep in request.endpoint for ep in open_endpoints):
+        return
+
+    # Allow OPTIONS requests (pre-flight checks)
+    if request.method == 'OPTIONS':
         return
 
     # Block all other requests if no user is logged in
@@ -128,10 +134,9 @@ def check_user_logged_in():
         return make_response(jsonify({'error': 'Unauthorized'}), 401)
 
 
-# --- Reports API Endpoints ---
+# --- Reports API Endpoints (Adding /api prefix) ---
 
-
-@app.route("/dashboard_summary")
+@app.route("/api/dashboard_summary")
 def get_dashboard_summary():
     leases = Lease.query.all()
     today = date.today()
@@ -149,7 +154,7 @@ def get_dashboard_summary():
     return jsonify(summary)
 
 
-@app.route("/reports/property_financials")
+@app.route("/api/reports/property_financials")
 def get_property_financials():
     property_id = request.args.get('property_id')
     year = int(request.args.get('year'))
@@ -318,19 +323,19 @@ class ExpenseById(ResourceById):
     model = Expense
 
 
-# --- API Resource Mapping (using the new dedicated classes) ---
-api.add_resource(PropertyList, "/properties")
-api.add_resource(PropertyById, "/properties/<int:id>")
-api.add_resource(UnitList, "/units")
-api.add_resource(UnitById, "/units/<int:id>")
-api.add_resource(TenantList, "/tenants")
-api.add_resource(TenantById, "/tenants/<int:id>")
-api.add_resource(LeaseList, "/leases")
-api.add_resource(LeaseById, "/leases/<int:id>")
-api.add_resource(PaymentList, "/payments")
-api.add_resource(PaymentById, "/payments/<int:id>")
-api.add_resource(ExpenseList, "/expenses")
-api.add_resource(ExpenseById, "/expenses/<int:id>")
+# --- API Resource Mapping (Adding /api prefix) ---
+api.add_resource(PropertyList, "/api/properties")
+api.add_resource(PropertyById, "/api/properties/<int:id>")
+api.add_resource(UnitList, "/api/units")
+api.add_resource(UnitById, "/api/units/<int:id>")
+api.add_resource(TenantList, "/api/tenants")
+api.add_resource(TenantById, "/api/tenants/<int:id>")
+api.add_resource(LeaseList, "/api/leases")
+api.add_resource(LeaseById, "/api/leases/<int:id>")
+api.add_resource(PaymentList, "/api/payments")
+api.add_resource(PaymentById, "/api/payments/<int:id>")
+api.add_resource(ExpenseList, "/api/expenses")
+api.add_resource(ExpenseById, "/api/expenses/<int:id>")
 
 
 if __name__ == "__main__":
