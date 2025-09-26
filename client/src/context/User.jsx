@@ -5,7 +5,7 @@ export const UserContext = createContext();
 
 export const UserProvider = ({ children }) => {
     // 1. Force the user object to a non-null value (logged-in state).
-    const [user, setUser] = useState({ id: 999, username: 'temp_admin', currency: 'USD' });
+    const [user, setUser] = useState({ id: 999, username: 'admin', currency: 'KSH' });
     
     // 2. Force isLoading to false immediately.
     const [isLoading, setIsLoading] = useState(false);
@@ -34,3 +34,4 @@ export const UserProvider = ({ children }) => {
         </UserContext.Provider>
     );
 };
+//
