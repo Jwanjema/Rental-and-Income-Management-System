@@ -3,6 +3,7 @@ from flask import Flask, jsonify, request, session, make_response
 from flask_cors import CORS
 from flask_restful import Api, Resource
 from flask_migrate import Migrate
+# FIX: Using absolute import to resolve ModuleNotFoundError in Render
 from models import db, bcrypt, User, Property, Unit, Tenant, Lease, Payment, Expense
 from datetime import datetime, date, timedelta
 from collections import defaultdict
@@ -80,7 +81,7 @@ def check_session():
         if user:
             return jsonify(user.to_dict()), 200
 
-    # FIX: Removed the TEMPORARY HACK, now returns 401/404 if no session exists
+    # RESTORED: Now correctly returns 401/404 if no session exists
     return make_response(jsonify({'message': 'Not logged in'}), 401)
 
 
@@ -93,9 +94,10 @@ def logout():
 @app.route("/profile", methods=["PATCH"])
 def update_profile():
     user_id = session.get('user_id')
-    if not user_id:
-        # Since we disabled before_request, we must check here
+    # This check remains important for routes not hit by before_request
+    if 'user_id' not in session:
         return make_response(jsonify({'error': 'Unauthorized'}), 401)
+
     user, data = db.session.get(User, user_id), request.get_json()
     if 'username' in data:
         user.username = data['username']
@@ -110,14 +112,18 @@ def update_profile():
     return jsonify(user.to_dict()), 200
 
 
-# ✅ FIX: UNCOMMENTED THE GLOBAL AUTH CHECK
-# This ensures that ALL routes requiring authentication are protected.
+# ✅ FIX: REFINED GLOBAL AUTH CHECK
+# This ensures that ALL private routes are protected and forces the frontend to the login page.
 @app.before_request
 def check_user_logged_in():
-    open_endpoints = ['register', 'login', 'check_session']
-    # Flask-RESTful routes will have an endpoint like 'resourcelist' or 'resourcebyid'
-    if request.method == 'OPTIONS' or request.endpoint in open_endpoints or request.endpoint == 'static':
+    # List of endpoints that DO NOT require a user session
+    open_endpoints = ['register', 'login', 'check_session', 'static']
+
+    # Allow OPTIONS requests (pre-flight checks) and explicitly open endpoints
+    if request.method == 'OPTIONS' or request.endpoint in open_endpoints:
         return
+
+    # Block all other requests if no user is logged in
     if 'user_id' not in session:
         return make_response(jsonify({'error': 'Unauthorized'}), 401)
 
