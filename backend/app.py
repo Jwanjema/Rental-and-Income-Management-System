@@ -3,11 +3,15 @@ from flask import Flask, jsonify, request, session, make_response
 from flask_cors import CORS
 from flask_restful import Api, Resource
 from flask_migrate import Migrate
+# FIX: Changed from 'from .models import ...' to 'from models import ...'
+# This resolves the 'ImportError: attempted relative import with no known parent package'
 from models import db, bcrypt, User, Property, Unit, Tenant, Lease, Payment, Expense
 from datetime import datetime, date, timedelta
 from collections import defaultdict
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
+# NOTE: The DATABASE variable is now only used as a default, but is officially overridden below
 DATABASE = os.environ.get(
     "DB_URI", f"sqlite:///{os.path.join(BASE_DIR, 'app.db')}")
 
@@ -17,7 +21,11 @@ VERCEL_FRONTEND_URL = "https://rental-and-income-management-system.vercel.app"
 
 app = Flask(__name__)
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
-app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE
+
+# CRITICAL FIX: Hard-code the SQLite URI to ignore Render's environment variables (like DATABASE_URL or DB_URI)
+# This fixes the PostgreSQL connection error (psycopg2.OperationalError)
+app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{os.path.join(BASE_DIR, 'app.db')}"
+
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.json.compact = False
 
