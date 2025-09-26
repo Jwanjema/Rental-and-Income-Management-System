@@ -1,8 +1,8 @@
 // client/api.js
 
-// **FIXED LINE:** Use the environment variable set on Vercel 
-// (which holds your full Render backend URL, e.g., https://your-app.onrender.com).
-const API_BASE_URL = import.meta.env.VITE_APP_API_URL || ''; 
+// Now that vite.config.js handles the full URL via the 'base' config,
+// we can use an empty string here. The build process will prepend the full URL.
+const API_BASE_URL = '';
 
 async function handleApiCall(url, method, body = null) {
   const options = {
@@ -17,21 +17,14 @@ async function handleApiCall(url, method, body = null) {
   
   if (!response.ok) {
     if (response.status === 401) {
-      window.location.href = '/login'; // Force redirect if unauthorized
+      window.location.href = '/login';
     }
-    // Attempt to parse the error. If it's HTML, the SyntaxError will still fire, 
-    // but the URL is now correct, so it should return JSON.
     const errorData = await response.json(); 
     throw new Error(errorData.error || `Failed to perform ${method} on ${url}`);
   }
   
-  // The 204 status code is used for successful deletion (No Content)
   return response.status === 204 ? null : response.json();
 }
-
-// --- Auth Routes (Implicitly handled by handleApiCall) ---
-// Your other auth endpoints (like /login, /register, /check_session) 
-// are likely called directly by a component using handleApiCall.
 
 // --- Dashboard & Reports ---
 export const getDashboardSummary = () => handleApiCall(`/dashboard_summary`, 'GET');

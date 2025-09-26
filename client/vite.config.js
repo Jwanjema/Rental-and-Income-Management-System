@@ -10,8 +10,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     
     // CRITICAL FIX: Set the base path for production to the API URL
-    // If the VITE_APP_API_URL is set (on Netlify/Vercel), use it. Otherwise, default to '/'.
-    // This should override any local proxy settings during the production build.
+    // If VITE_APP_API_URL is set on Netlify/Vercel, use it. Otherwise, default to '/'.
     base: env.VITE_APP_API_URL || '/', 
 
     server: {
