@@ -3,15 +3,14 @@ from flask import Flask, jsonify, request, session, make_response
 from flask_cors import CORS
 from flask_restful import Api, Resource
 from flask_migrate import Migrate
-# FIX: Changed from 'from .models import ...' to 'from models import ...'
-# This resolves the 'ImportError: attempted relative import with no known parent package'
+# FIX: Using absolute import to resolve ModuleNotFoundError in Render
 from models import db, bcrypt, User, Property, Unit, Tenant, Lease, Payment, Expense
 from datetime import datetime, date, timedelta
 from collections import defaultdict
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
-# NOTE: The DATABASE variable is now only used as a default, but is officially overridden below
+# NOTE: The DATABASE variable is now only used as a default
 DATABASE = os.environ.get(
     "DB_URI", f"sqlite:///{os.path.join(BASE_DIR, 'app.db')}")
 
@@ -22,8 +21,7 @@ VERCEL_FRONTEND_URL = "https://rental-and-income-management-system.vercel.app"
 app = Flask(__name__)
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
 
-# CRITICAL FIX: Hard-code the SQLite URI to ignore Render's environment variables (like DATABASE_URL or DB_URI)
-# This fixes the PostgreSQL connection error (psycopg2.OperationalError)
+# CRITICAL FIX: Hard-code the SQLite URI to ensure local database usage on Render
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{os.path.join(BASE_DIR, 'app.db')}"
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -49,7 +47,7 @@ CORS(app,
 # --- Auth Routes ---
 
 
-@app.route("/register", methods=["POST"])
+@app.route("/api/register", methods=["POST"])
 def register():
     data = request.get_json()
     username, password = data.get('username'), data.get('password')
@@ -65,7 +63,7 @@ def register():
     return jsonify(new_user.to_dict()), 201
 
 
-@app.route("/login", methods=["POST"])
+@app.route("/api/login", methods=["POST"])
 def login():
     data = request.get_json()
     user = User.query.filter_by(username=data.get('username')).first()
@@ -75,7 +73,7 @@ def login():
     return make_response(jsonify({'error': 'Invalid username or password'}), 401)
 
 
-@app.route("/check_session", methods=["GET"])
+@app.route("/api/check_session", methods=["GET"])
 def check_session():
     user_id = session.get('user_id')
     if user_id:
@@ -83,22 +81,26 @@ def check_session():
         if user:
             return jsonify(user.to_dict()), 200
 
-    # TEMPORARY HACK: Return a default user if no one is logged in (Authentication Bypass)
-    return jsonify({"id": 1, "username": "guest", "currency": "USD"}), 200
+    # ✅ HACK RESTORED: This returns a dummy user if no session exists,
+    # forcing the frontend to believe a user is logged in.
+    temp_user = User(id=999, username='temp_admin', currency='USD')
+    return jsonify(temp_user.to_dict()), 200
 
 
-@app.route("/logout", methods=["DELETE"])
+@app.route("/api/logout", methods=["DELETE"])
 def logout():
     session.pop('user_id', None)
     return make_response(jsonify({'message': 'Logged out successfully'}), 200)
 
 
-@app.route("/profile", methods=["PATCH"])
+@app.route("/api/profile", methods=["PATCH"])
 def update_profile():
     user_id = session.get('user_id')
-    if not user_id:
-        # Since we disabled before_request, we must check here
+    # Since we are disabling before_request, we MUST check here
+    if 'user_id' not in session:
+        # Fallback to the temp user if needed, or simply fail if no real user.
         return make_response(jsonify({'error': 'Unauthorized'}), 401)
+
     user, data = db.session.get(User, user_id), request.get_json()
     if 'username' in data:
         user.username = data['username']
@@ -113,21 +115,16 @@ def update_profile():
     return jsonify(user.to_dict()), 200
 
 
-# 🛑 CRITICAL CHANGE: COMMENT OUT THE GLOBAL AUTH CHECK
-# This fixes the 401 error on asset loading
+# ❌ AUTH CHECK REMOVED: Commented out to allow access to all routes
 # @app.before_request
 # def check_user_logged_in():
-#     open_endpoints = ['register', 'login', 'check_session']
-#     if request.method == 'OPTIONS' or request.endpoint in open_endpoints:
-#         return
-#     if 'user_id' not in session:
-#         return make_response(jsonify({'error': 'Unauthorized'}), 401)
+#     # ... (code commented out)
+#     pass
 
 
-# --- Reports API Endpoints ---
+# --- Reports API Endpoints (Adding /api prefix) ---
 
-
-@app.route("/dashboard_summary")
+@app.route("/api/dashboard_summary")
 def get_dashboard_summary():
     leases = Lease.query.all()
     today = date.today()
@@ -145,7 +142,7 @@ def get_dashboard_summary():
     return jsonify(summary)
 
 
-@app.route("/reports/property_financials")
+@app.route("/api/reports/property_financials")
 def get_property_financials():
     property_id = request.args.get('property_id')
     year = int(request.args.get('year'))
@@ -314,19 +311,19 @@ class ExpenseById(ResourceById):
     model = Expense
 
 
-# --- API Resource Mapping (using the new dedicated classes) ---
-api.add_resource(PropertyList, "/properties")
-api.add_resource(PropertyById, "/properties/<int:id>")
-api.add_resource(UnitList, "/units")
-api.add_resource(UnitById, "/units/<int:id>")
-api.add_resource(TenantList, "/tenants")
-api.add_resource(TenantById, "/tenants/<int:id>")
-api.add_resource(LeaseList, "/leases")
-api.add_resource(LeaseById, "/leases/<int:id>")
-api.add_resource(PaymentList, "/payments")
-api.add_resource(PaymentById, "/payments/<int:id>")
-api.add_resource(ExpenseList, "/expenses")
-api.add_resource(ExpenseById, "/expenses/<int:id>")
+# --- API Resource Mapping (Adding /api prefix) ---
+api.add_resource(PropertyList, "/api/properties")
+api.add_resource(PropertyById, "/api/properties/<int:id>")
+api.add_resource(UnitList, "/api/units")
+api.add_resource(UnitById, "/api/units/<int:id>")
+api.add_resource(TenantList, "/api/tenants")
+api.add_resource(TenantById, "/api/tenants/<int:id>")
+api.add_resource(LeaseList, "/api/leases")
+api.add_resource(LeaseById, "/api/leases/<int:id>")
+api.add_resource(PaymentList, "/api/payments")
+api.add_resource(PaymentById, "/api/payments/<int:id>")
+api.add_resource(ExpenseList, "/api/expenses")
+api.add_resource(ExpenseById, "/api/expenses/<int:id>")
 
 
 if __name__ == "__main__":
