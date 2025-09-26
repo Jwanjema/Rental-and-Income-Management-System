@@ -3,7 +3,6 @@ from flask import Flask, jsonify, request, session, make_response
 from flask_cors import CORS
 from flask_restful import Api, Resource
 from flask_migrate import Migrate
-# FIX: Using absolute import to resolve ModuleNotFoundError in Render
 from models import db, bcrypt, User, Property, Unit, Tenant, Lease, Payment, Expense
 from datetime import datetime, date, timedelta
 from collections import defaultdict
@@ -47,7 +46,7 @@ CORS(app,
 # --- Auth Routes ---
 
 
-@app.route("/api/register", methods=["POST"])
+@app.route("/register", methods=["POST"])
 def register():
     data = request.get_json()
     username, password = data.get('username'), data.get('password')
@@ -63,7 +62,7 @@ def register():
     return jsonify(new_user.to_dict()), 201
 
 
-@app.route("/api/login", methods=["POST"])
+@app.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
     user = User.query.filter_by(username=data.get('username')).first()
@@ -73,7 +72,7 @@ def login():
     return make_response(jsonify({'error': 'Invalid username or password'}), 401)
 
 
-@app.route("/api/check_session", methods=["GET"])
+@app.route("/check_session", methods=["GET"])
 def check_session():
     user_id = session.get('user_id')
     if user_id:
@@ -81,23 +80,22 @@ def check_session():
         if user:
             return jsonify(user.to_dict()), 200
 
-    # RESTORED: Now correctly returns 401/404 if no session exists
+    # FIX: Removed the TEMPORARY HACK, now returns 401/404 if no session exists
     return make_response(jsonify({'message': 'Not logged in'}), 401)
 
 
-@app.route("/api/logout", methods=["DELETE"])
+@app.route("/logout", methods=["DELETE"])
 def logout():
     session.pop('user_id', None)
     return make_response(jsonify({'message': 'Logged out successfully'}), 200)
 
 
-@app.route("/api/profile", methods=["PATCH"])
+@app.route("/profile", methods=["PATCH"])
 def update_profile():
     user_id = session.get('user_id')
-    # This check remains important for routes not hit by before_request
-    if 'user_id' not in session:
+    if not user_id:
+        # Since we disabled before_request, we must check here
         return make_response(jsonify({'error': 'Unauthorized'}), 401)
-
     user, data = db.session.get(User, user_id), request.get_json()
     if 'username' in data:
         user.username = data['username']
@@ -112,31 +110,22 @@ def update_profile():
     return jsonify(user.to_dict()), 200
 
 
-# ✅ REFINED GLOBAL AUTH CHECK
-# This ensures that ALL private routes are protected and forces the frontend to the login page.
+# ✅ FIX: UNCOMMENTED THE GLOBAL AUTH CHECK
+# This ensures that ALL routes requiring authentication are protected.
 @app.before_request
 def check_user_logged_in():
-    # List of endpoints that DO NOT require a user session
-    open_endpoints = ['register', 'login',
-                      'check_session', 'static', 'profile', 'logout']
-
-    # Check if the requested route contains an open endpoint function name
-    # We use 'in' because Flask prefixes API endpoints with the function name (e.g., 'register').
-    if request.endpoint and any(ep in request.endpoint for ep in open_endpoints):
+    open_endpoints = ['register', 'login', 'check_session']
+    # Flask-RESTful routes will have an endpoint like 'resourcelist' or 'resourcebyid'
+    if request.method == 'OPTIONS' or request.endpoint in open_endpoints or request.endpoint == 'static':
         return
-
-    # Allow OPTIONS requests (pre-flight checks)
-    if request.method == 'OPTIONS':
-        return
-
-    # Block all other requests if no user is logged in
     if 'user_id' not in session:
         return make_response(jsonify({'error': 'Unauthorized'}), 401)
 
 
-# --- Reports API Endpoints (Adding /api prefix) ---
+# --- Reports API Endpoints ---
 
-@app.route("/api/dashboard_summary")
+
+@app.route("/dashboard_summary")
 def get_dashboard_summary():
     leases = Lease.query.all()
     today = date.today()
@@ -154,7 +143,7 @@ def get_dashboard_summary():
     return jsonify(summary)
 
 
-@app.route("/api/reports/property_financials")
+@app.route("/reports/property_financials")
 def get_property_financials():
     property_id = request.args.get('property_id')
     year = int(request.args.get('year'))
@@ -323,19 +312,19 @@ class ExpenseById(ResourceById):
     model = Expense
 
 
-# --- API Resource Mapping (Adding /api prefix) ---
-api.add_resource(PropertyList, "/api/properties")
-api.add_resource(PropertyById, "/api/properties/<int:id>")
-api.add_resource(UnitList, "/api/units")
-api.add_resource(UnitById, "/api/units/<int:id>")
-api.add_resource(TenantList, "/api/tenants")
-api.add_resource(TenantById, "/api/tenants/<int:id>")
-api.add_resource(LeaseList, "/api/leases")
-api.add_resource(LeaseById, "/api/leases/<int:id>")
-api.add_resource(PaymentList, "/api/payments")
-api.add_resource(PaymentById, "/api/payments/<int:id>")
-api.add_resource(ExpenseList, "/api/expenses")
-api.add_resource(ExpenseById, "/api/expenses/<int:id>")
+# --- API Resource Mapping (using the new dedicated classes) ---
+api.add_resource(PropertyList, "/properties")
+api.add_resource(PropertyById, "/properties/<int:id>")
+api.add_resource(UnitList, "/units")
+api.add_resource(UnitById, "/units/<int:id>")
+api.add_resource(TenantList, "/tenants")
+api.add_resource(TenantById, "/tenants/<int:id>")
+api.add_resource(LeaseList, "/leases")
+api.add_resource(LeaseById, "/leases/<int:id>")
+api.add_resource(PaymentList, "/payments")
+api.add_resource(PaymentById, "/payments/<int:id>")
+api.add_resource(ExpenseList, "/expenses")
+api.add_resource(ExpenseById, "/expenses/<int:id>")
 
 
 if __name__ == "__main__":
