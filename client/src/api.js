@@ -2,7 +2,7 @@
 // In production, it will use the URL from your OnRender environment variable.
 // In local development, the variable is not set, so it will fall back to an empty string,
 // allowing the Vite proxy to work correctly.
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+const API_BASE_URL = 'https://rental-backend-ir36.onrender.com';
 
 async function handleApiCall(url, method, body = null) {
   const options = {
