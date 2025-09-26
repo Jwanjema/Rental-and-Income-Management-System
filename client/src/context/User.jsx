@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect } from 'react';
-import { checkSession } from '../api'; // Import the new helper function
+import { checkSession } from '../api.js'; // Import the new helper function
 
 export const UserContext = createContext();
 
