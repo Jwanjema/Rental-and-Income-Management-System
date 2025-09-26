@@ -3,15 +3,13 @@ from flask import Flask, jsonify, request, session, make_response
 from flask_cors import CORS
 from flask_restful import Api, Resource
 from flask_migrate import Migrate
-# FIX: Changed from 'from .models import ...' to 'from models import ...'
-# This resolves the 'ImportError: attempted relative import with no known parent package'
 from models import db, bcrypt, User, Property, Unit, Tenant, Lease, Payment, Expense
 from datetime import datetime, date, timedelta
 from collections import defaultdict
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
-# NOTE: The DATABASE variable is now only used as a default, but is officially overridden below
+# NOTE: The DATABASE variable is now only used as a default
 DATABASE = os.environ.get(
     "DB_URI", f"sqlite:///{os.path.join(BASE_DIR, 'app.db')}")
 
@@ -22,8 +20,7 @@ VERCEL_FRONTEND_URL = "https://rental-and-income-management-system.vercel.app"
 app = Flask(__name__)
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
 
-# CRITICAL FIX: Hard-code the SQLite URI to ignore Render's environment variables (like DATABASE_URL or DB_URI)
-# This fixes the PostgreSQL connection error (psycopg2.OperationalError)
+# CRITICAL FIX: Hard-code the SQLite URI to ensure local database usage on Render
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{os.path.join(BASE_DIR, 'app.db')}"
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -83,8 +80,8 @@ def check_session():
         if user:
             return jsonify(user.to_dict()), 200
 
-    # TEMPORARY HACK: Return a default user if no one is logged in (Authentication Bypass)
-    return jsonify({"id": 1, "username": "guest", "currency": "USD"}), 200
+    # FIX: Removed the TEMPORARY HACK, now returns 401/404 if no session exists
+    return make_response(jsonify({'message': 'Not logged in'}), 401)
 
 
 @app.route("/logout", methods=["DELETE"])
@@ -113,15 +110,16 @@ def update_profile():
     return jsonify(user.to_dict()), 200
 
 
-# 🛑 CRITICAL CHANGE: COMMENT OUT THE GLOBAL AUTH CHECK
-# This fixes the 401 error on asset loading
-# @app.before_request
-# def check_user_logged_in():
-#     open_endpoints = ['register', 'login', 'check_session']
-#     if request.method == 'OPTIONS' or request.endpoint in open_endpoints:
-#         return
-#     if 'user_id' not in session:
-#         return make_response(jsonify({'error': 'Unauthorized'}), 401)
+# ✅ FIX: UNCOMMENTED THE GLOBAL AUTH CHECK
+# This ensures that ALL routes requiring authentication are protected.
+@app.before_request
+def check_user_logged_in():
+    open_endpoints = ['register', 'login', 'check_session']
+    # Flask-RESTful routes will have an endpoint like 'resourcelist' or 'resourcebyid'
+    if request.method == 'OPTIONS' or request.endpoint in open_endpoints or request.endpoint == 'static':
+        return
+    if 'user_id' not in session:
+        return make_response(jsonify({'error': 'Unauthorized'}), 401)
 
 
 # --- Reports API Endpoints ---
