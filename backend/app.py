@@ -1,5 +1,5 @@
 import os
-from flask import Flask, jsonify, request, session
+from flask import Flask, jsonify, request, session, make_response
 from flask_cors import CORS
 from flask_restful import Api, Resource
 from flask_migrate import Migrate
@@ -11,7 +11,12 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DATABASE = os.environ.get(
     "DB_URI", f"sqlite:///{os.path.join(BASE_DIR, 'app.db')}")
 
+# CRITICAL: Replace THIS URL with the exact domain of your Vercel deployment!
+VERCEL_FRONTEND_URL = "https://rental-and-income-management-system.vercel.app"
+
+
 app = Flask(__name__)
+# NOTE: In production, app.secret_key should be set via an environment variable
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
 app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -21,7 +26,15 @@ migrate = Migrate(app, db)
 db.init_app(app)
 bcrypt.init_app(app)
 api = Api(app)
-CORS(app, supports_credentials=True)
+
+# --- CORS Configuration FIX ---
+# Explicitly allow requests from your Vercel domain and local dev environment
+CORS(app,
+     supports_credentials=True,
+     # Allow requests from your Vercel domain, localhost:5173 (Vite default)
+     origins=[VERCEL_FRONTEND_URL,
+              "http://127.0.0.1:5173", "http://localhost:5173"]
+     )
 
 # --- Auth Routes ---
 
@@ -49,7 +62,8 @@ def login():
     if user and user.authenticate(data.get('password')):
         session['user_id'] = user.id
         return jsonify(user.to_dict()), 200
-    return jsonify({'error': 'Invalid username or password'}), 401
+    # Ensuring the 401 response is JSON
+    return make_response(jsonify({'error': 'Invalid username or password'}), 401)
 
 
 @app.route("/check_session", methods=["GET"])
@@ -59,20 +73,21 @@ def check_session():
         user = db.session.get(User, user_id)
         if user:
             return jsonify(user.to_dict()), 200
-    return {}, 204
+    # IMPORTANT: Returning an empty 204 response for unauthorized session
+    return make_response({}, 204)
 
 
 @app.route("/logout", methods=["DELETE"])
 def logout():
     session.pop('user_id', None)
-    return jsonify({'message': 'Logged out successfully'}), 200
+    return make_response(jsonify({'message': 'Logged out successfully'}), 200)
 
 
 @app.route("/profile", methods=["PATCH"])
 def update_profile():
     user_id = session.get('user_id')
     if not user_id:
-        return jsonify({'error': 'Unauthorized'}), 401
+        return make_response(jsonify({'error': 'Unauthorized'}), 401)
     user, data = db.session.get(User, user_id), request.get_json()
     if 'username' in data:
         user.username = data['username']
@@ -82,7 +97,7 @@ def update_profile():
         if user.authenticate(data['current_password']):
             user.password_hash = data['new_password']
         else:
-            return jsonify({'error': 'Invalid current password'}), 401
+            return make_response(jsonify({'error': 'Invalid current password'}), 401)
     db.session.commit()
     return jsonify(user.to_dict()), 200
 
@@ -90,10 +105,11 @@ def update_profile():
 @app.before_request
 def check_user_logged_in():
     open_endpoints = ['register', 'login', 'check_session']
+    # Allow OPTIONS method (used by CORS preflight) and open endpoints
     if request.method == 'OPTIONS' or request.endpoint in open_endpoints:
         return
     if 'user_id' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
+        return make_response(jsonify({'error': 'Unauthorized'}), 401)
 
 # --- Reports API Endpoints ---
 
@@ -199,7 +215,7 @@ class ResourceList(Resource):
             return new_item.to_dict(), 201
         except Exception as e:
             db.session.rollback()
-            return {"error": str(e)}, 500
+            return make_response({"error": str(e)}, 500)
 
 
 class ResourceById(Resource):
@@ -208,13 +224,13 @@ class ResourceById(Resource):
     def get(self, id):
         item = db.session.get(self.model, id)
         if not item:
-            return {"error": f"{self.model.__name__} not found"}, 404
+            return make_response({"error": f"{self.model.__name__} not found"}, 404)
         return item.to_dict(), 200
 
     def patch(self, id):
         item = db.session.get(self.model, id)
         if not item:
-            return {"error": f"{self.model.__name__} not found"}, 404
+            return make_response({"error": f"{self.model.__name__} not found"}, 404)
         data = request.get_json()
         try:
             for attr, value in data.items():
@@ -225,15 +241,15 @@ class ResourceById(Resource):
             return item.to_dict(), 200
         except Exception as e:
             db.session.rollback()
-            return {"error": str(e)}, 500
+            return make_response({"error": str(e)}, 500)
 
     def delete(self, id):
         item = db.session.get(self.model, id)
         if not item:
-            return {"error": f"{self.model.__name__} not found"}, 404
+            return make_response({"error": f"{self.model.__name__} not found"}, 404)
         db.session.delete(item)
         db.session.commit()
-        return {}, 204
+        return make_response({}, 204)
 
 
 class Properties(ResourceList):
