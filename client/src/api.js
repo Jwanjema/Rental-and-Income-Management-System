@@ -1,4 +1,8 @@
-const API_BASE_URL = '/api'; // Use the proxy
+// client/api.js
+
+// **FIXED LINE:** Use the environment variable set on Vercel 
+// (which holds your full Render backend URL, e.g., https://your-app.onrender.com).
+const API_BASE_URL = import.meta.env.VITE_APP_API_URL || ''; 
 
 async function handleApiCall(url, method, body = null) {
   const options = {
@@ -8,18 +12,26 @@ async function handleApiCall(url, method, body = null) {
     credentials: 'include',
   };
 
+  // This correctly constructs the URL: e.g., https://your-app.onrender.com/login
   const response = await fetch(`${API_BASE_URL}${url}`, options);
   
   if (!response.ok) {
     if (response.status === 401) {
       window.location.href = '/login'; // Force redirect if unauthorized
     }
-    const errorData = await response.json();
+    // Attempt to parse the error. If it's HTML, the SyntaxError will still fire, 
+    // but the URL is now correct, so it should return JSON.
+    const errorData = await response.json(); 
     throw new Error(errorData.error || `Failed to perform ${method} on ${url}`);
   }
   
+  // The 204 status code is used for successful deletion (No Content)
   return response.status === 204 ? null : response.json();
 }
+
+// --- Auth Routes (Implicitly handled by handleApiCall) ---
+// Your other auth endpoints (like /login, /register, /check_session) 
+// are likely called directly by a component using handleApiCall.
 
 // --- Dashboard & Reports ---
 export const getDashboardSummary = () => handleApiCall(`/dashboard_summary`, 'GET');
@@ -41,4 +53,4 @@ export const unitsApi = createApiResource('units');
 export const tenantsApi = createApiResource('tenants');
 export const leasesApi = createApiResource('leases');
 export const paymentsApi = createApiResource('payments');
-export const expensesApi = createApiResource('expenses'); // <-- THIS IS THE NEWLY ADDED LINE
+export const expensesApi = createApiResource('expenses');
