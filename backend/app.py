@@ -81,8 +81,7 @@ def check_session():
         if user:
             return jsonify(user.to_dict()), 200
 
-    # ✅ HACK RESTORED: This returns a dummy user if no session exists,
-    # forcing the frontend to believe a user is logged in.
+    # ✅ TEMPORARY HACK RESTORED: This forces the frontend to believe a user is logged in
     temp_user = User(id=999, username='temp_admin', currency='USD')
     return jsonify(temp_user.to_dict()), 200
 
@@ -98,7 +97,7 @@ def update_profile():
     user_id = session.get('user_id')
     # Since we are disabling before_request, we MUST check here
     if 'user_id' not in session:
-        # Fallback to the temp user if needed, or simply fail if no real user.
+        # Fallback for the non-logged in state
         return make_response(jsonify({'error': 'Unauthorized'}), 401)
 
     user, data = db.session.get(User, user_id), request.get_json()
@@ -115,14 +114,14 @@ def update_profile():
     return jsonify(user.to_dict()), 200
 
 
-# ❌ AUTH CHECK REMOVED: Commented out to allow access to all routes
+# ❌ GLOBAL AUTH CHECK REMOVED: Commented out to allow access to all routes
 # @app.before_request
 # def check_user_logged_in():
 #     # ... (code commented out)
 #     pass
 
 
-# --- Reports API Endpoints (Adding /api prefix) ---
+# --- Reports API Endpoints (Using the /api prefix for consistency) ---
 
 @app.route("/api/dashboard_summary")
 def get_dashboard_summary():
@@ -262,7 +261,7 @@ class ResourceById(Resource):
         return make_response({}, 204)
 
 
-# --- Dedicated Classes for each API Endpoint (The fix for TypeError) ---
+# --- Dedicated Classes for each API Endpoint ---
 class PropertyList(ResourceList):
     model = Property
 
@@ -311,7 +310,7 @@ class ExpenseById(ResourceById):
     model = Expense
 
 
-# --- API Resource Mapping (Adding /api prefix) ---
+# --- API Resource Mapping (Using the /api prefix) ---
 api.add_resource(PropertyList, "/api/properties")
 api.add_resource(PropertyById, "/api/properties/<int:id>")
 api.add_resource(UnitList, "/api/units")
