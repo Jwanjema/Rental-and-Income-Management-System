@@ -1,79 +1,103 @@
-# Rental & Income Management System
+# Rental and Income Management System (RIMS)
 
-This is a full-stack web application designed to help landlords and property managers manage their rental properties efficiently. It provides a clean dashboard to track properties, tenants, leases, and financials, all protected by a secure login system.
+## Live video Demonstartion
+https://drive.google.com/file/d/1A99ucjU11GtXyh6ZVCnNa_rE5wFX1YZK/view?usp=sharing
 
-The application is built with a **React** frontend and a **Flask (Python)** backend API.
+A full-stack web application designed to help property managers and landlords efficiently track properties, units, tenants, leases, rent payments, and expenses.
 
-## Core Features
+## 🚀 Key Features
 
-- **Dashboard Overview:** At-a-glance summary of total income, expenses, net profit, and occupancy rate.
-- **Property & Unit Management:** Add and manage your rental properties and their individual units.
-- **Tenant & Lease Tracking:** Keep records of tenants and their lease agreements, including start/end dates and rent amounts.
-- **Financial Tracking:** Log all incoming rent payments and outgoing expenses (like repairs or taxes) to get a clear picture of your finances.
-- **Interactive Reports:** A powerful reporting page to analyze your income vs. expenses, filterable by property and year.
-- **Secure User Authentication:** The entire application is protected by a username and password.
+* **Dashboard Summary:** Real-time overview of key metrics (occupied/vacant units, total rent, pending balances).
+* **CRUD Management:** Full management for Properties, Units, Tenants, Leases, Payments, and Expenses.
+* **Financial Reporting:** Detailed monthly performance charts, income/expense breakdown, and net profit analysis.
+* **Cross-Site Communication:** Secure handling of cross-origin requests between the decoupled frontend (Vercel) and backend (Render).
 
-## How to Run The Application
+---
 
-Follow these steps to get the project running on your local machine.
+## 🛠️ Tech Stack
+
+### Frontend (Client)
+| Technology | Description | Deployment |
+| :--- | :--- | :--- |
+| **React** | Core JavaScript library for building the user interface. | Vercel |
+| **Vite** | Fast build tool and development server. | |
+| **Recharts** | Library for rendering dynamic, responsive charts and graphs. | |
+
+### Backend (Server)
+| Technology | Description | Deployment |
+| :--- | :--- | :--- |
+| **Python** | Primary language for the server-side logic. | Render |
+| **Flask** | Lightweight web framework. | |
+| **Flask-SQLAlchemy** | ORM for database interactions using SQLite. | |
+| **Flask-CORS** | Manages Cross-Origin Resource Sharing for secure communication. | |
+
+---
+
+## ⚙️ Setup and Installation
 
 ### Prerequisites
 
-You will need the following software installed:
+* Python (3.8+)
+* Node.js (18+)
 
-- **Python 3.8+**
-- **Node.js 16+**
-- **pipenv** (if not installed, run: `pip install pipenv`)
+### 1. Backend Setup (`server` directory)
 
-### Step 1: Set Up and Run the Backend
+1.  **Clone the repository:**
+    ```bash
+    git clone [YOUR_REPO_URL]
+    cd rental-and-income-management-system/server
+    ```
 
-First, get the backend server running.
+2.  **Create and activate a virtual environment:**
+    ```bash
+    python -m venv venv
+    source venv/bin/activate  # On Windows: venv\Scripts\activate
+    ```
 
-````bash
-# 1. Navigate into the backend directory
-cd backend
+3.  **Install dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-# 2. Install Python packages and activate the environment
-pipenv install
-pipenv shell
+4.  **Database Setup (SQLite):**
+    ```bash
+    # Initialize/Update the database schema
+    flask db upgrade
+    # If you have seed data, run:
+    python seed.py
+    ```
 
-# 3. Create and migrate the database
-# (If you get an error, you may need to run `flask db init` first)
-flask db migrate -m "Create database"
-flask db upgrade
+5.  **Run the Flask server locally:**
+    ```bash
+    python app.py
+    # The API will run at [http://127.0.0.1:5000](http://127.0.0.1:5000) by default.
+    ```
 
-# 4. Add sample data to the database
-python seed.py
+### 2. Frontend Setup (`client` directory)
 
-# 5. Run the backend server
-# (Keep this terminal running)
-flask run
+1.  **Navigate to the client directory:**
+    ```bash
+    cd ../client
+    ```
 
-# Step 2: Set Up and Run the Frontend
-Now, open a new, separate terminal for the frontend.
-code
-Bash
-# 1. Navigate into the client directory
-cd client
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
 
-# 2. Install Node packages
-npm install
+3.  **Run the React development server locally:**
+    ```bash
+    npm run dev
+    # The application will run at http://localhost:5173 (or similar).
+    ```
 
-# 3. Run the frontend server
-# (Keep this terminal running)
-npm run dev```
 
-### Step 3: Access and Use the App
+# 👤 Project Group 7
+Joan Rotich
+Wanjiku Mwaura
+Leon Kanari
+Joe Wanjema
 
--   Open your web browser and navigate to: **`http://localhost:5173`**
--   You will be redirected to the login page.
+## 📜 License
 
-### Default Login Credentials
-
-A default user is created by the `seed.py` script. Use these credentials to log in for the first time:
-
--   **Username:** `admin`
--   **Password:** `admin`
-
-You can change your password and username from the "Settings" page after logging in.
-````
+Distributed under the MIT License.
