@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-// Assuming 'propertiesApi' is an object that contains the correct BASE_URL
-import { propertiesApi, API_BASE_URL } from '../api.js'; 
+// 1. CRITICAL IMPORT CHANGE: Import getFinancialReport instead of API_BASE_URL
+import { propertiesApi, getFinancialReport } from '../api.js'; 
 import { UserContext } from '../context/User.jsx';
-
-// ❌ REMOVED: const API_BASE_URL = '/api'; - This caused the error!
 
 const SummaryCard = ({ title, value, prefix = '', suffix = '', color = 'var(--text-color)' }) => (
     <div className="summary-card">
@@ -22,7 +20,7 @@ const Reports = () => {
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
     useEffect(() => {
-        // propertiesApi.getAll() should already be using the correct BASE_URL
+        // Fetch list of properties for the dropdown
         propertiesApi.getAll().then(setProperties).catch(err => console.error("Failed to fetch properties:", err));
     }, []);
 
@@ -30,11 +28,11 @@ const Reports = () => {
         const fetchReportData = async () => {
             setLoading(true);
             try {
-                // ✅ FIX: Use the imported API_BASE_URL (which should be the full Render domain)
-                // and remove the leading /api from the path.
-                const response = await fetch(`${API_BASE_URL}/reports/property_financials?property_id=${selectedProperty}&year=${selectedYear}`, { credentials: 'include' });
-                if (!response.ok) throw new Error('Network response was not ok');
-                setReportData(await response.json());
+                // 2. CRITICAL FETCH CHANGE: Use the dedicated helper function
+                // This ensures the URL is constructed correctly by api.js's handleApiCall
+                const data = await getFinancialReport(selectedProperty, selectedYear);
+
+                setReportData(data);
             } catch (error) {
                 console.error("Failed to fetch report data:", error);
                 setReportData(null);
