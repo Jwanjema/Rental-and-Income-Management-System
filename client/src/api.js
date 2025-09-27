@@ -1,7 +1,7 @@
 // client/api.js
 
-// API_BASE_URL will be the Render URL from Vercel/Netlify environment variables (e.g., VITE_APP_API_URL).
-// It must be set as the full Render URL WITHOUT a trailing slash (e.g., 'https://rentaldb-ordc.onrender.com').
+// API_BASE_URL will be the Render URL from Vercel/Netlify environment variables (VITE_APP_API_URL).
+// CRITICAL: VITE_APP_API_URL MUST be set to 'https://rentaldb-ordc.onrender.com' (NO trailing slash!).
 const API_BASE_URL = import.meta.env.VITE_APP_API_URL || '';
 
 async function handleApiCall(url, method, body = null) {
@@ -14,7 +14,7 @@ async function handleApiCall(url, method, body = null) {
 
   let apiUrl;
 
-  // Ensure the endpoint path does not start with a slash when concatenating
+  // FIX: Ensure the endpoint path does not start with a slash when concatenating
   // with the full BASE_URL to prevent the double slash (//) error.
   const cleanUrl = url.startsWith('/') ? url.substring(1) : url;
 
@@ -32,7 +32,6 @@ async function handleApiCall(url, method, body = null) {
   
   if (!response.ok) {
     if (response.status === 401) {
-      // Allow UserContext to handle 401 on startup, but force redirect for other calls
       if (url !== '/check_session') {
         window.location.href = '/login'; 
       }
@@ -41,7 +40,6 @@ async function handleApiCall(url, method, body = null) {
     throw new Error(errorData.error || `Failed to perform ${method} on ${url}`);
   }
   
-  // The 204 status code is used for successful deletion (No Content)
   return response.status === 204 ? null : response.json();
 }
 
@@ -50,8 +48,11 @@ export const checkSession = () => handleApiCall(`/check_session`, 'GET');
 
 // --- Dashboard & Reports ---
 export const getDashboardSummary = () => handleApiCall(`/dashboard_summary`, 'GET');
-// Note: This report path should be updated to match the one used in Reports.jsx: /reports/property_financials
-export const getFinancialReport = (propertyId, year) => handleApiCall(`/reports/property_financials?property_id=${propertyId}&year=${year}`, 'GET');
+
+// Note: Ensure the Report calls in Reports.jsx use this structure:
+// const response = await getFinancialReport(selectedProperty, selectedYear);
+export const getFinancialReport = (propertyId, year) => 
+  handleApiCall(`/reports/property_financials?property_id=${propertyId}&year=${year}`, 'GET');
 
 // --- Profile ---
 export const updateProfile = (profileData) => handleApiCall('/profile', 'PATCH', profileData);

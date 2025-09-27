@@ -3,7 +3,6 @@ from flask import Flask, jsonify, request, session, make_response
 from flask_cors import CORS
 from flask_restful import Api, Resource
 from flask_migrate import Migrate
-# FIX: Using absolute import to resolve ModuleNotFoundError in Render
 from models import db, bcrypt, User, Property, Unit, Tenant, Lease, Payment, Expense
 from datetime import datetime, date, timedelta
 from collections import defaultdict
@@ -14,8 +13,10 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DATABASE = os.environ.get(
     "DB_URI", f"sqlite:///{os.path.join(BASE_DIR, 'app.db')}")
 
-# CRITICAL: Replace THIS URL with the exact domain of your Vercel deployment!
+# CRITICAL: Define the main Vercel domain
 VERCEL_FRONTEND_URL = "https://rental-and-income-management-system.vercel.app"
+# CRITICAL: Define the specific Vercel preview domain from your error message
+VERCEL_PREVIEW_URL = "https://rental-and-income-management-system-git-main-jwanjemas-projects.vercel.app"
 
 
 app = Flask(__name__)
@@ -37,11 +38,15 @@ db.init_app(app)
 bcrypt.init_app(app)
 api = Api(app)
 
-# --- CORS Configuration FIX ---
+# --- CORS Configuration FIX (Includes both Vercel domains) ---
 CORS(app,
      supports_credentials=True,
-     origins=[VERCEL_FRONTEND_URL,
-              "http://127.0.0.1:5173", "http://localhost:5173"]
+     origins=[
+         VERCEL_FRONTEND_URL,
+         VERCEL_PREVIEW_URL,  # <-- NEWLY ADDED PREVIEW URL
+         "http://127.0.0.1:5173",
+         "http://localhost:5173"
+     ]
      )
 
 # --- Auth Routes (NO /api prefix) ---
