@@ -93,9 +93,9 @@ A full-stack web application designed to help property managers and landlords ef
 
 
 # 👤 Project Group 7
-Joan Rotich
-Wanjiku Mwaura
-Leon Kanari
+Joan Rotich,
+Wanjiku Mwaura,
+Leon Kanari, and
 Joe Wanjema
 
 ## 📜 License
