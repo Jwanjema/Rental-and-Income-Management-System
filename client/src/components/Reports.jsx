@@ -104,6 +104,7 @@ const Reports = () => {
                                     <Tooltip formatter={(value) => `${user.currency} ${value.toLocaleString()}`} />
                                     <Legend />
                                 </PieChart>
+                             </ResponsiveContainer>
                         </div>
                     </div>
                 </>
